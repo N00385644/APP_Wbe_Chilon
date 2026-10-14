@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { coerceTourLink } from '../lib/chatTree';
+import { coerceTourLink } from '../features/chatbot/engine/chatTree';
 
 // Regla Fase 1 P4: un slug jamás equivale a un UUID; tour_id inválido -> null
 // y la solicitud sigue válida como destino libre.

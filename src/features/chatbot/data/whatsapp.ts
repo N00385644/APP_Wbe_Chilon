@@ -4,7 +4,7 @@
 // Nota técnica: WhatsApp no permite iframe embebido (X-Frame-Options: DENY),
 // por eso el chat muestra un "preview" interno + botón que abre wa.me.
 
-import type { BookingDraft } from './chatTree';
+import type { BookingDraft } from '../engine/chatTree';
 
 export const WHATSAPP_NUMBER = '51901195392';
 export const WHATSAPP_DISPLAY = '+51 901 195 392';

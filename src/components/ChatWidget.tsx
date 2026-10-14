@@ -1,19 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
-import { Bot, MessageCircle, Send, Plus, X, Menu, Copy, Check, ExternalLink } from 'lucide-react';
+import { MessageCircle, Send, Plus, X, Menu } from 'lucide-react';
 import { fetchTourCards, isTourPublished, resolvePublishedTourIdBySlug } from '../services/tours';
 import { fetchFaqCards } from '../services/faqs';
 import { createTourRequest } from '../services/requests';
 import { buildTourRequestPayload } from '../schemas/requests';
+import { searchCatalog } from '../features/chatbot/engine/chatSearch';
+import { WaCta } from '../features/chatbot/components/WaCta';
+import { DraftCard } from '../features/chatbot/components/DraftCard';
 import { useAuth } from '../context/AuthContext';
 import {
   MAIN_MENU_OPTIONS, START_TEXT, FAQ_OPTIONS, BOOKING_DATE_OPTIONS, BOOKING_PAX_OPTIONS,
   tourOptions, destinationOptions, fallbackDestinations, paxToNumbers, coerceTourLink,
   bookingMissing, bookingSummary, type BookingDraft, type ChatOption, type MinimalTour,
-} from '../lib/chatTree';
+} from '../features/chatbot/engine/chatTree';
 import {
-  WHATSAPP_DISPLAY, BRAND_IMAGES, waLink,
+  WHATSAPP_DISPLAY, BRAND_IMAGES,
   buildBookingMessage, buildTourMessage, buildFaqMessage,
-} from '../lib/whatsapp';
+} from '../features/chatbot/data/whatsapp';
 
 type Draft = BookingDraft;
 type ChatMsg = {
@@ -28,43 +31,6 @@ type FullTour = MinimalTour & {
   short_description?: string | null; meeting_point?: string | null; includes?: string | null;
 };
 type FaqRow = { category: string; question: string; answer: string };
-
-// ---------- Sub-componente: cierre a WhatsApp dentro del chat ----------
-// WhatsApp bloquea iframes (X-Frame-Options), así que no se puede "abrir el
-// WhatsApp dentro del chat". En su lugar: preview del mensaje + botón que
-// abre wa.me (en móvil abre la app, en PC abre WhatsApp Web) con texto listo
-// para que el asesor de la empresa continúe.
-function WaCta({ text, label = 'Continuar en WhatsApp' }: { text: string; label?: string }) {
-  const [copied, setCopied] = useState(false);
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch { /* portapapeles no disponible */ }
-  };
-  return (
-    <div className="mt-2 rounded-xl border border-[#00a884]/30 bg-[#e7ffdb] p-2.5">
-      <p className="text-[11px] font-bold uppercase text-[#075e54]">Se envía al WhatsApp de la empresa ({WHATSAPP_DISPLAY})</p>
-      <p className="mt-1 max-h-24 overflow-y-auto whitespace-pre-wrap text-xs text-stone-700">{text}</p>
-      <div className="mt-2 flex gap-2">
-        <a
-          href={waLink(text)} target="_blank" rel="noopener noreferrer"
-          className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg bg-[#00a884] px-3 py-2 text-[13px] font-bold text-white hover:bg-[#009678]"
-        >
-          <ExternalLink size={14} /> {label}
-        </a>
-        <button
-          onClick={copy} title="Copiar mensaje"
-          className="grid w-10 place-items-center rounded-lg border border-stone-300 bg-white hover:bg-stone-50"
-        >
-          {copied ? <Check size={15} className="text-green-700" /> : <Copy size={15} />}
-        </button>
-      </div>
-      <p className="mt-1 text-[10px] text-stone-500">Al abrirse WhatsApp solo pulsa Enviar — el equipo de la empresa te atiende allí.</p>
-    </div>
-  );
-}
 
 export function ChatWidget() {
   const { session, signInWithGoogle } = useAuth();
@@ -338,14 +304,11 @@ export function ChatWidget() {
     return false;
   };
 
-  // Búsqueda local por palabras clave: tours + faqs publicados
+  // Búsqueda local por palabras clave: tours + faqs publicados (motor puro)
   const answerLocal = (text: string) => {
-    const q = text.toLowerCase();
-    const tourHit = tours.find((t) =>
-      `${t.title} ${t.destination ?? ''} ${t.short_description ?? ''}`.toLowerCase().split(/[^a-záéíóúñü0-9]+/)
-        .filter((w) => w.length > 3).some((w) => q.includes(w)),
-    );
-    if (tourHit) {
+    const hit = searchCatalog(tours, faqs, text);
+    if (hit.kind === 'tour') {
+      const tourHit = hit.tour;
       pushAssistant(
         `Encontré esto para ti:\n${tourHit.title}\n${tourHit.short_description ?? ''}\n• Destino: ${tourHit.destination ?? '—'}\n• Precio desde: ${money(tourHit)}\n• Salida: ${tourHit.meeting_point ?? 'a coordinar'}`.trim(),
         {
@@ -359,11 +322,8 @@ export function ChatWidget() {
       );
       return;
     }
-    const faqHit = faqs.find((f) =>
-      `${f.question} ${f.answer} ${f.category}`.toLowerCase().split(/[^a-záéíóúñü0-9]+/)
-        .filter((w) => w.length > 3).some((w) => q.includes(w)),
-    );
-    if (faqHit) {
+    if (hit.kind === 'faq') {
+      const faqHit = hit.faq;
       pushAssistant(`${faqHit.question}\n${faqHit.answer}`, {
         options: [{ value: 'menu', label: '⬅ Menú principal' }],
         waText: buildFaqMessage(faqHit.category, faqHit.question),
@@ -437,8 +397,7 @@ export function ChatWidget() {
       >
         {open ? <X size={22} /> : <MessageCircle size={24} />}
       </button>
-      {open && (
-        <section aria-label="Asistente virtual de tours" className="fixed bottom-20 right-4 z-50 flex h-[70vh] w-[calc(100vw-2rem)] max-w-md flex-col overflow-hidden rounded-2xl border border-stone-200 bg-[#ece5dd] shadow-2xl">
+      {open && (        <section aria-label="Asistente virtual de tours" className="fixed bottom-20 right-4 z-50 flex h-[70vh] w-[calc(100vw-2rem)] max-w-md flex-col overflow-hidden rounded-2xl border border-stone-200 bg-[#ece5dd] shadow-2xl">
           <header className="flex items-center gap-2 bg-[#075e54] px-4 py-3 text-white">
             <img src={BRAND_IMAGES.logo} alt="Turismo Chilón" className="h-8 w-8 rounded-full bg-white object-contain p-0.5" loading="lazy" />
             <div>
@@ -552,44 +511,5 @@ export function ChatWidget() {
         </section>
       )}
     </>
-  );
-}
-
-function DraftCard({ draft, saving, logged, onConfirm, onLogin }: {
-  draft: Draft; saving: boolean; logged: boolean;
-  onConfirm: (d: Draft) => void; onLogin: () => void;
-}) {
-  const waText = buildBookingMessage(draft);
-  return (
-    <div className="mt-2 rounded-xl border border-stone-200 bg-white p-3 text-stone-700">
-      <p className="text-xs font-bold uppercase text-stone-500">Resumen de solicitud (revísalo antes de enviar)</p>
-      <ul className="mt-1 text-[13px] space-y-0.5">
-        <li><b>Destino:</b> {draft.requested_destination ?? '—'}</li>
-        <li><b>Fecha preferida:</b> {draft.preferred_date ?? '—'}</li>
-        <li><b>Viajeros:</b> {Number(draft.adults ?? 1) + Number(draft.children ?? 0)} (adultos: {draft.adults ?? 1}, menores: {draft.children ?? 0})</li>
-        {draft.contact_phone && <li><b>Teléfono:</b> {draft.contact_phone}</li>}
-        {draft.additional_notes && <li><b>Notas:</b> {draft.additional_notes}</li>}
-      </ul>
-      {(draft.missing?.length ?? 0) > 0 && (
-        <p className="mt-1 text-xs text-amber-700">Falta: {draft.missing!.join(', ')}. Respóndelo en el chat.</p>
-      )}
-      <p className="mt-1 text-[11px] text-stone-500">Esto registra una <b>solicitud pendiente</b>, no una reserva confirmada ni un pago.</p>
-      <a
-        href={waLink(waText)} target="_blank" rel="noopener noreferrer"
-        className="mt-2 block w-full rounded-lg bg-[#00a884] px-3 py-2 text-center text-sm font-bold text-white hover:bg-[#009678]"
-      >
-        Enviar por WhatsApp ({WHATSAPP_DISPLAY})
-      </a>
-      {logged ? (
-        <button disabled={saving || !(draft.ready_to_confirm ?? false)} onClick={() => onConfirm(draft)}
-          className="mt-2 w-full rounded-lg bg-andino-700 px-3 py-2 text-sm font-bold text-white disabled:opacity-40 hover:bg-andino-800">
-          {saving ? 'Guardando…' : 'También guardar en la web'}
-        </button>
-      ) : (
-        <button onClick={onLogin} className="mt-2 w-full rounded-lg border border-andino-700 px-3 py-2 text-sm font-bold text-andino-800 hover:bg-andino-50">
-          Continuar con Google para guardar en la web
-        </button>
-      )}
-    </div>
   );
 }

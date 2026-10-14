@@ -1,8 +1,8 @@
 // Reglas únicas de construcción de solicitudes (límite de campos + coherencia).
 // Usado por el chat (ChatWidget) y el formulario de contacto (ContactoSection):
 // una sola regla, sin duplicar entre chat, formularios y admin.
-import type { BookingDraft } from '../lib/chatTree';
-import { coerceTourLink } from '../lib/chatTree';
+import type { BookingDraft } from '../features/chatbot/engine/chatTree';
+import { coerceTourLink } from '../features/chatbot/engine/chatTree';
 import type { CreateRequestInput } from '../services/requests';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
