@@ -1,5 +1,9 @@
 import { useEffect, useState } from 'react';
 import { supabase } from './supabase';
+import { fetchPublishedTours } from '../services/tours';
+import { fetchPublishedFaqs } from '../services/faqs';
+import { fetchMyRequests } from '../services/requests';
+import { fetchMySchedule } from '../services/schedule';
 import type { Faq, Tour, TourImage, TourRequest, ScheduledRequest, Conversation, Message } from './types';
 
 export function useTours() {
@@ -7,12 +11,10 @@ export function useTours() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    supabase.from('tours').select('*').eq('is_published', true).order('title')
-      .then(({ data, error }) => {
-        if (error) setError(error.message);
-        else setTours((data ?? []) as Tour[]);
-        setLoading(false);
-      });
+    fetchPublishedTours()
+      .then(setTours)
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : 'No se pudo cargar el catálogo.'))
+      .finally(() => setLoading(false));
   }, []);
   return { tours, loading, error };
 }
@@ -20,11 +22,14 @@ export function useTours() {
 export function useFaqs() {
   const [faqs, setFaqs] = useState<Faq[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    supabase.from('faqs').select('*').eq('is_published', true).order('display_order')
-      .then(({ data }) => { setFaqs((data ?? []) as Faq[]); setLoading(false); });
+    fetchPublishedFaqs()
+      .then(setFaqs)
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : 'No se pudieron cargar las preguntas.'))
+      .finally(() => setLoading(false));
   }, []);
-  return { faqs, loading };
+  return { faqs, loading, error };
 }
 
 export function useMyRequests(userId: string | undefined) {
@@ -33,10 +38,11 @@ export function useMyRequests(userId: string | undefined) {
   const reload = async () => {
     if (!userId) return;
     setLoading(true);
-    const { data } = await supabase.from('tour_requests').select('*')
-      .eq('user_id', userId).order('created_at', { ascending: false });
-    setRequests((data ?? []) as TourRequest[]);
-    setLoading(false);
+    try {
+      setRequests(await fetchMyRequests(userId));
+    } finally {
+      setLoading(false);
+    }
   };
   useEffect(() => { reload(); }, [userId]);
   return { requests, loading, reload };
@@ -52,14 +58,11 @@ export function useMySchedule(userId: string | undefined) {
   const reload = async () => {
     if (!userId) return;
     setLoading(true);
-    const { data } = await supabase
-      .from('tour_requests')
-      .select('*, tours(title, slug, image_url, duration, meeting_point, recommendations)')
-      .eq('user_id', userId)
-      .eq('status', 'confirmed')
-      .order('confirmed_date', { ascending: true, nullsFirst: false });
-    setSchedule((data ?? []) as ScheduledRequest[]);
-    setLoading(false);
+    try {
+      setSchedule(await fetchMySchedule(userId));
+    } finally {
+      setLoading(false);
+    }
   };
   useEffect(() => { reload(); }, [userId]);
   return { schedule, loading, reload };

@@ -3,8 +3,9 @@ import { Link } from 'react-router-dom';
 import { MapPin, Clock, ArrowRight, ShieldCheck, Snowflake, Satellite, Users, CalendarDays, Send } from 'lucide-react';
 import { TourCard } from './catalog';
 import { Reveal } from './Reveal';
-import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { createTourRequest } from '../services/requests';
+import { buildTourRequestPayload } from '../schemas/requests';
 import type { Tour } from '../lib/types';
 import { SOCIALS } from '../lib/site';
 
@@ -151,17 +152,17 @@ export function ContactoSection({ tours }: { tours: Tour[] }) {
     setBusy(true);
     try {
       if (user) {
-        const { error } = await supabase.from('tour_requests').insert({
-          user_id: user.id,
-          requested_destination: destino,
-          travelers_count: personas,
-          adults: personas,
-          children: 0,
-          preferred_date: fecha,
-          additional_notes: `Contacto web — Nombre: ${nombre}`,
-          status: 'pending',
-        });
-        if (error) throw error;
+        await createTourRequest(buildTourRequestPayload({
+          userId: user.id,
+          draft: {
+            requested_destination: destino,
+            preferred_date: fecha,
+            adults: personas,
+            children: 0,
+            additional_notes: `Contacto web — Nombre: ${nombre}`,
+          },
+          tourId: null,
+        }));
         setMsg({ ok: true, text: 'Solicitud registrada en tu perfil. Te confirmaremos por WhatsApp.' });
       } else {
         const text = encodeURIComponent(`Hola Turismo Chilón, soy ${nombre}. Me interesa: ${destino}. Personas: ${personas}. Fecha deseada: ${fecha}.`);

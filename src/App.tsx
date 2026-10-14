@@ -14,7 +14,7 @@ import { formatPEN, formatFechaHoraLima } from './lib/format';
 import { formatHoraEs, formatFechaCortaEs } from './lib/calendar';
 import { REQUEST_STATUS_LABEL, type TourRequest } from './lib/types';
 import { SOCIALS } from './lib/site';
-import { supabase } from './lib/supabase';
+import { cancelMyRequest } from './services/requests';
 import { 
   MapPin, Clock, CalendarDays, Youtube, Sparkles, 
   Compass, ArrowRight, ShieldCheck, CheckCircle2, MessageSquare
@@ -419,8 +419,12 @@ function RequestCard({ r, onChanged }: { r: TourRequest; onChanged: () => void }
 
   const cancel = async () => {
     if (!confirm('¿Cancelar esta solicitud pendiente?')) return;
-    const { error } = await supabase.from('tour_requests').update({ status: 'cancelled' }).eq('id', r.id);
-    if (!error) onChanged(); else alert(error.message);
+    try {
+      await cancelMyRequest(r.id);
+      onChanged();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'No se pudo cancelar.');
+    }
   };
 
   return (

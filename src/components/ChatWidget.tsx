@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Bot, MessageCircle, Send, Plus, X, Menu, Copy, Check, ExternalLink } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { fetchTourCards, isTourPublished, resolvePublishedTourIdBySlug } from '../services/tours';
+import { fetchFaqCards } from '../services/faqs';
+import { createTourRequest } from '../services/requests';
+import { buildTourRequestPayload } from '../schemas/requests';
 import { useAuth } from '../context/AuthContext';
 import {
   MAIN_MENU_OPTIONS, START_TEXT, FAQ_OPTIONS, BOOKING_DATE_OPTIONS, BOOKING_PAX_OPTIONS,
@@ -81,15 +84,10 @@ export function ChatWidget() {
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs, open, menuOpen]);
 
-  // Catálogo local (lectura pública)
+  // Catálogo local (lectura pública, vía servicios centralizados)
   useEffect(() => {
-    supabase.from('tours')
-      .select('slug,title,destination,duration,price_from,currency,short_description,meeting_point,includes')
-      .eq('is_published', true).order('title').limit(12)
-      .then(({ data }) => { if (data) setTours(data as FullTour[]); });
-    supabase.from('faqs')
-      .select('category,question,answer').eq('is_published', true).order('display_order').limit(30)
-      .then(({ data }) => { if (data) setFaqs(data as FaqRow[]); });
+    fetchTourCards().then(setTours).catch(() => {});
+    fetchFaqCards().then(setFaqs).catch(() => {});
   }, []);
 
   const newChat = () => {
@@ -408,36 +406,18 @@ export function ChatWidget() {
     }
     setSaving(true); setError(null);
     try {
-      const adults = Math.max(1, Number(draft.adults ?? 1));
-      const children = Math.max(0, Number(draft.children ?? 0));
       // Resolver slug -> id real contra tours publicados. Nunca inventar IDs ni
       // asumir que el slug equivale al UUID. Si no hay tour válido, tour_id queda
       // null y la solicitud sigue válida como destino libre.
       let tourId: string | null = coerceTourLink(draft.tour_id);
       const slug = draft.tour_slug?.slice(0, 100);
       if (slug) {
-        const { data: t } = await supabase.from('tours').select('id')
-          .eq('slug', slug).eq('is_published', true).single();
-        tourId = (t as { id: string } | null)?.id ? coerceTourLink((t as { id: string }).id) : null;
+        tourId = await resolvePublishedTourIdBySlug(slug);
       } else if (tourId) {
-        const { data: t } = await supabase.from('tours').select('id')
-          .eq('id', tourId).eq('is_published', true).single();
-        tourId = (t as { id: string } | null)?.id ? tourId : null;
+        tourId = (await isTourPublished(tourId)) ? tourId : null;
       }
-      const payload = {
-        user_id: session.user.id,
-        tour_id: tourId,
-        requested_destination: (draft.requested_destination ?? '').slice(0, 200) || null,
-        preferred_date: draft.preferred_date ?? null,
-        date_is_flexible: false,
-        adults, children,
-        travelers_count: adults + children,
-        contact_phone: draft.contact_phone?.slice(0, 30) ?? null,
-        additional_notes: draft.additional_notes?.slice(0, 2000) ?? null,
-        status: 'pending',
-      };
-      const { data, error } = await supabase.from('tour_requests').insert(payload).select('id').single();
-      if (error) throw error;
+      const payload = buildTourRequestPayload({ userId: session.user.id, draft, tourId });
+      const data = await createTourRequest(payload);
       setTrackingId(data.id);
       pushAssistant(`✅ Solicitud guardada con seguimiento: ${data.id} (pendiente, no es pago). También puedes reenviarla por WhatsApp para atención inmediata.`, {
         waText: buildBookingMessage(draft, tours.find((t) => t.slug === draft.tour_slug)?.title),
