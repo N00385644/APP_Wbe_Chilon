@@ -1,8 +1,9 @@
+// Tarjeta visual de tour (presentación pura, sin acceso a datos).
 import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Clock, MapPin, Users, ChevronDown, Sparkles, ArrowRight } from 'lucide-react';
-import type { Faq, Tour } from '../lib/types';
-import { formatPEN } from '../lib/format';
+import { Clock, MapPin, ArrowRight } from 'lucide-react';
+import type { Tour } from '../../../lib/types';
+import { formatPEN } from '../../../lib/format';
 
 export function TourCard({ tour, index = 0 }: { tour: Tour; index?: number }) {
   const [coords, setCoords] = useState({ x: 0, y: 0 });
@@ -24,7 +25,7 @@ export function TourCard({ tour, index = 0 }: { tour: Tour; index?: number }) {
 
   return (
     <div className="perspective-1000">
-      <article 
+      <article
         onMouseMove={handleMouseMove}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => { setIsHovered(false); setCoords({ x: 0, y: 0 }); }}
@@ -37,11 +38,11 @@ export function TourCard({ tour, index = 0 }: { tour: Tour; index?: number }) {
         {/* Contenedor de Imagen con Zoom y Brillo */}
         <div className="relative h-48 w-full overflow-hidden bg-andino-950">
           {tour.image_url ? (
-            <img 
-              src={tour.image_url} 
-              alt={tour.title} 
-              loading="lazy" 
-              className="card-img-zoom h-full w-full object-cover" 
+            <img
+              src={tour.image_url}
+              alt={tour.title}
+              loading="lazy"
+              className="card-img-zoom h-full w-full object-cover"
             />
           ) : (
             <div className="grid h-full w-full place-items-center bg-gradient-to-br from-andino-800 to-andino-950 text-5xl text-white">
@@ -88,8 +89,8 @@ export function TourCard({ tour, index = 0 }: { tour: Tour; index?: number }) {
               </span>
             </div>
 
-            <Link 
-              to={`/tours/${tour.slug}`} 
+            <Link
+              to={`/tours/${tour.slug}`}
               className="btn-3d inline-flex items-center gap-1.5 rounded-xl bg-andino-700 px-3.5 py-2 text-xs sm:text-sm font-bold text-white hover:bg-andino-800 transition-all active:scale-95 shadow-sm"
             >
               <span>Ver detalle</span>
@@ -98,94 +99,6 @@ export function TourCard({ tour, index = 0 }: { tour: Tour; index?: number }) {
           </div>
         </div>
       </article>
-    </div>
-  );
-}
-
-export function FaqList({ faqs, filter }: { faqs: Faq[]; filter: string }) {
-  const q = filter.trim().toLowerCase();
-  const list = q
-    ? faqs.filter((f) => `${f.question} ${f.answer} ${f.category} ${f.keywords ?? ''}`.toLowerCase().includes(q))
-    : faqs;
-  const [open, setOpen] = useState<string | null>(null);
-
-  if (!list.length) {
-    return (
-      <div className="rounded-2xl border border-dashed border-stone-300 p-8 text-center bg-white/50">
-        <p className="text-sm text-stone-500">No se encontraron preguntas para esa búsqueda.</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-2.5">
-      {list.map((f) => {
-        const isOpen = open === f.id;
-        return (
-          <div 
-            key={f.id} 
-            className={`rounded-2xl border transition-all duration-200 overflow-hidden ${
-              isOpen 
-                ? 'border-andino-300 bg-white shadow-md ring-2 ring-andino-500/10' 
-                : 'border-stone-200/90 bg-white hover:border-stone-300 hover:shadow-sm'
-            }`}
-          >
-            <button 
-              onClick={() => setOpen(isOpen ? null : f.id)} 
-              className="w-full px-4 sm:px-5 py-3.5 text-left flex items-start justify-between gap-3"
-            >
-              <div>
-                <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-andino-600 mb-1">
-                  <Sparkles size={11} className="text-amber-500" /> {f.category}
-                </span>
-                <span className="block font-bold text-stone-800 text-sm sm:text-base leading-snug">
-                  {f.question}
-                </span>
-              </div>
-              <span className={`grid place-items-center w-7 h-7 rounded-xl bg-stone-100 text-stone-500 shrink-0 transition-transform duration-300 ${isOpen ? 'rotate-180 bg-andino-100 text-andino-700' : ''}`}>
-                <ChevronDown size={16} />
-              </span>
-            </button>
-            {isOpen && (
-              <div className="px-4 sm:px-5 pb-4 pt-1 text-sm text-stone-600 leading-relaxed border-t border-stone-100/80 animate-fade-up">
-                <p className="whitespace-pre-wrap">{f.answer}</p>
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-export function TravelersInput({ adults, children, onChange }: {
-  adults: number; children: number;
-  onChange: (a: number, c: number) => void;
-}) {
-  return (
-    <div className="flex flex-wrap items-center gap-4 text-sm bg-stone-50 p-3 rounded-xl border border-stone-200">
-      <label className="inline-flex items-center gap-2 font-medium text-stone-700">
-        <Users size={16} className="text-andino-600" /> Adultos
-        <input 
-          type="number" 
-          min={1} 
-          max={50} 
-          value={adults}
-          onChange={(e) => onChange(Number(e.target.value), children)}
-          className="w-16 rounded-lg border border-stone-300 bg-white px-2 py-1 text-center font-bold text-stone-800 shadow-sm focus:border-andino-500 focus:ring-1 focus:ring-andino-500" 
-        />
-      </label>
-      <label className="inline-flex items-center gap-2 font-medium text-stone-700">
-        Menores
-        <input 
-          type="number" 
-          min={0} 
-          max={50} 
-          value={children}
-          onChange={(e) => onChange(adults, Number(e.target.value))}
-          className="w-16 rounded-lg border border-stone-300 bg-white px-2 py-1 text-center font-bold text-stone-800 shadow-sm focus:border-andino-500 focus:ring-1 focus:ring-andino-500" 
-        />
-      </label>
     </div>
   );
 }

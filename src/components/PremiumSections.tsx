@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { MapPin, Clock, ArrowRight, ShieldCheck, Snowflake, Satellite, Users, CalendarDays, Send } from 'lucide-react';
-import { TourCard } from './catalog';
-import { Reveal } from './Reveal';
+import { TourCard } from '../features/tours/components/TourCard';
+import { Reveal } from './shared/Reveal';
 import { useAuth } from '../context/AuthContext';
 import { createTourRequest } from '../services/requests';
 import { buildTourRequestPayload } from '../schemas/requests';

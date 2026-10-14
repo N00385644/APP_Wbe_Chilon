@@ -2,7 +2,7 @@
   "name": "tours-cajamarca-chatbot",
   "private": true,
   "version": "1.0.0",
-  "description": "Chatbot con IA para empresa de tours en Cajamarca, Perú — React + Vite + Supabase + Gemini",
+  "description": "Asistente guiado para empresa de tours en Cajamarca, Perú — React + Vite + Supabase (árbol de decisiones, sin IA)",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -14,7 +14,6 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.47.0",
     "lucide-react": "^0.454.0",
-    "pngjs": "^7.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.28.0",
@@ -26,6 +25,7 @@
     "@types/three": "^0.186.0",
     "@vitejs/plugin-react": "^4.3.3",
     "autoprefixer": "^10.4.20",
+    "pngjs": "^7.0.0",
     "postcss": "^8.4.49",
     "rollup": "npm:@rollup/wasm-node@^4.52.5",
     "tailwindcss": "^3.4.14",

@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { BarChart3, Search } from 'lucide-react';
-import { supabase } from '../lib/supabase';
-import type { Faq, Tour, TourImage, TourRequest } from '../lib/types';
-import { REQUEST_STATUS_LABEL } from '../lib/types';
-import { formatFechaHoraLima } from '../lib/format';
+import { supabase } from '../../../lib/supabase';
+import type { Faq, Tour, TourImage, TourRequest } from '../../../lib/types';
+import { REQUEST_STATUS_LABEL } from '../../../lib/types';
+import { formatFechaHoraLima } from '../../../lib/format';
 
 const STATUSES = ['pending', 'in_review', 'contacted', 'confirmed', 'cancelled'];
 

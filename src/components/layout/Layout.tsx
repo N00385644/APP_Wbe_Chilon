@@ -5,14 +5,14 @@ import {
   Instagram, Youtube, Mail, Phone, MapPinned, Sparkles, 
   Compass, CheckCircle2, ArrowRight
 } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
-import { SOCIALS } from '../lib/site';
+import { useAuth } from '../../context/AuthContext';
+import { SOCIALS } from '../../lib/site';
 
 // Three.js pesa ~600KB: se carga bajo demanda para no frenar el primer
 // render; mientras tanto se muestra un esqueleto con el logo (solo opacity).
 // H350Viewer usa el GLB real /models/hyundai-h350-solati.glb (607KB, 5 meshes).
 const H350Viewer = lazy(() =>
-  import('./H350Viewer').then((m) => ({ default: m.H350Viewer })),
+  import('../viewer3d/H350Viewer').then((m) => ({ default: m.H350Viewer })),
 );
 
 const LOGO_URL = '/logo-chilon.png';

@@ -1,22 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
 import { MessageCircle, Send, Plus, X, Menu } from 'lucide-react';
-import { fetchTourCards, isTourPublished, resolvePublishedTourIdBySlug } from '../services/tours';
-import { fetchFaqCards } from '../services/faqs';
-import { createTourRequest } from '../services/requests';
-import { buildTourRequestPayload } from '../schemas/requests';
-import { searchCatalog } from '../features/chatbot/engine/chatSearch';
-import { WaCta } from '../features/chatbot/components/WaCta';
-import { DraftCard } from '../features/chatbot/components/DraftCard';
-import { useAuth } from '../context/AuthContext';
+import { fetchTourCards, isTourPublished, resolvePublishedTourIdBySlug } from '../../../services/tours';
+import { fetchFaqCards } from '../../../services/faqs';
+import { createTourRequest } from '../../../services/requests';
+import { buildTourRequestPayload } from '../../../schemas/requests';
+import { searchCatalog } from '../engine/chatSearch';
+import { WaCta } from './WaCta';
+import { DraftCard } from './DraftCard';
+import { useAuth } from '../../../context/AuthContext';
 import {
   MAIN_MENU_OPTIONS, START_TEXT, FAQ_OPTIONS, BOOKING_DATE_OPTIONS, BOOKING_PAX_OPTIONS,
   tourOptions, destinationOptions, fallbackDestinations, paxToNumbers, coerceTourLink,
   bookingMissing, bookingSummary, type BookingDraft, type ChatOption, type MinimalTour,
-} from '../features/chatbot/engine/chatTree';
+} from '../engine/chatTree';
 import {
   WHATSAPP_DISPLAY, BRAND_IMAGES,
   buildBookingMessage, buildTourMessage, buildFaqMessage,
-} from '../features/chatbot/data/whatsapp';
+} from '../data/whatsapp';
 
 type Draft = BookingDraft;
 type ChatMsg = {

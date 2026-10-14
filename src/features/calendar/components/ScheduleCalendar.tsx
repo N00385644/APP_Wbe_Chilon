@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CalendarDays, ChevronLeft, ChevronRight, Clock, MapPinned, Backpack, MessageSquare } from 'lucide-react';
-import type { ScheduledRequest } from '../lib/types';
+import type { ScheduledRequest } from '../../../lib/types';
 import {
   MONTHS_ES, WEEKDAYS_ES, buildMonthGrid, shiftMonth,
   todayISO, formatHoraEs, formatFechaCortaEs,
-} from '../lib/calendar';
-import { SOCIALS } from '../lib/site';
+} from '../../../lib/calendar';
+import { SOCIALS } from '../../../lib/site';
 
 /** Agrupa los tours confirmados por fecha ISO ('YYYY-MM-DD'). */
 function groupByDate(schedule: ScheduledRequest[]): Record<string, ScheduledRequest[]> {
