@@ -7,8 +7,14 @@ export type ChatOption = { value: string; label: string };
 export type BookingDraft = {
   requested_destination?: string;
   preferred_date?: string | null;
+  /** true = el visitante eligió fecha flexible (distinto de "sin fecha"). */
+  date_is_flexible?: boolean;
   adults?: number;
   children?: number;
+  /** Rango elegido en el árbol ('1' | '2' | '3-5' | '6+'), si aplica. */
+  pax_range?: string;
+  /** true cuando el número de viajeros ya es exacto (no un rango). */
+  pax_confirmed?: boolean;
   contact_phone?: string;
   additional_notes?: string;
   tour_id?: string | null;
@@ -73,10 +79,25 @@ export function fallbackDestinations(): ChatOption[] {
 }
 
 export function paxToNumbers(v: string): { adults: number; children: number } {
+  // LEGACY: solo '1'/'2' son exactos. Para rangos ('3-5', '6+') el árbol debe
+  // pedir el número exacto (ver PAX_RANGE_LABEL + pax_confirmed) en lugar de
+  // inventar adultos/menores. Se conserva por compatibilidad.
   if (v === '1') return { adults: 1, children: 0 };
   if (v === '2') return { adults: 2, children: 0 };
   if (v === '3-5') return { adults: 3, children: 0 };
   return { adults: 6, children: 0 };
+}
+
+export const PAX_RANGE_LABEL: Record<string, string> = {
+  '1': '1 viajero',
+  '2': '2 viajeros',
+  '3-5': '3 a 5 viajeros',
+  '6+': '6 o más',
+};
+
+/** Solo '1' y '2' son cantidades exactas; los rangos exigen confirmación. */
+export function isExactPax(v: string): boolean {
+  return v === '1' || v === '2';
 }
 
 /**
@@ -90,23 +111,75 @@ export function coerceTourLink(tourId: string | null | undefined): string | null
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v) ? v : null;
 }
 
-/** Paso de reserva -> valida qué falta para confirmar (misma regla que el guardado web). */
-export function bookingMissing(d: BookingDraft): string[] {
+/** Hoy en America/Lima como YYYY-MM-DD (comparación por día, sin confusión UTC). */
+export function todayLimaISO(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Lima',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now);
+}
+
+function isValidCalendarDate(y: number, m: number, d: number): boolean {
+  if (m < 1 || m > 12 || d < 1 || d > 31) return false;
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
+}
+
+/**
+ * Paso de reserva -> valida qué falta para confirmar (misma regla que el guardado web).
+ * - Destino con solo espacios cuenta como falta.
+ * - Fecha flexible (date_is_flexible) cubre la fecha; sin ella se exige
+ *   YYYY-MM-DD válida y no pasada en America/Lima.
+ * - Rangos de viajeros exigen el número exacto antes de confirmar.
+ * - Viajeros con enteros estrictos (sin decimales ni negativos).
+ */
+export function bookingMissing(d: BookingDraft, now: Date = new Date()): string[] {
   const missing: string[] = [];
-  if (!d.requested_destination) missing.push('destino');
-  if (!d.preferred_date) missing.push('fecha preferida');
-  const total = Number(d.adults ?? 0) + Number(d.children ?? 0);
-  if (total < 1) missing.push('número de viajeros');
+  const dest = String(d.requested_destination ?? '').replace(/\s+/g, ' ').trim();
+  if (!dest) missing.push('destino');
+  const flex = !!d.date_is_flexible;
+  const raw = String(d.preferred_date ?? '').trim();
+  if (!raw && !flex) {
+    missing.push('fecha (o fecha flexible)');
+  } else if (raw) {
+    const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!m || !isValidCalendarDate(Number(m[1]), Number(m[2]), Number(m[3]))) {
+      missing.push('fecha inválida (usa AAAA-MM-DD)');
+    } else if (raw < todayLimaISO(now)) {
+      missing.push('fecha pasada (elige hoy, futuro o fecha flexible)');
+    }
+  }
+  if (d.pax_range && !d.pax_confirmed && !isExactPax(d.pax_range)) {
+    missing.push('número exacto de viajeros');
+  }
+  const a = typeof d.adults === 'number' && Number.isInteger(d.adults) ? d.adults : NaN;
+  const c = typeof d.children === 'number' && Number.isInteger(d.children) ? d.children : NaN;
+  const total = (Number.isNaN(a) ? 0 : a) + (Number.isNaN(c) ? 0 : c);
+  if (!Number.isInteger(total) || total < 1 || a < 1 || c < 0 || total > 100) {
+    missing.push('número de viajeros');
+  }
   return missing;
 }
 
+/**
+ * Resumen con los mismos valores normalizados que irán a Supabase.
+ * finishBooking normaliza el borrador antes de llamar aquí y de construir
+ * el payload, así resumen y payload coinciden por construcción.
+ */
 export function bookingSummary(d: BookingDraft): string {
-  const total = Number(d.adults ?? 1) + Number(d.children ?? 0);
+  const dest = String(d.requested_destination ?? '').replace(/\s+/g, ' ').trim() || '—';
+  const raw = String(d.preferred_date ?? '').trim();
+  const fecha = raw || (d.date_is_flexible ? 'flexible' : '—');
+  const adults = typeof d.adults === 'number' && Number.isInteger(d.adults) ? d.adults : 1;
+  const children = typeof d.children === 'number' && Number.isInteger(d.children) ? d.children : 0;
+  const total = adults + children;
   return (
     `Resumen de tu solicitud:\n` +
-    `• Destino: ${d.requested_destination ?? '—'}\n` +
-    `• Fecha: ${d.preferred_date ?? 'flexible'}\n` +
-    `• Viajeros: ${total}\n` +
+    `• Destino: ${dest}\n` +
+    `• Fecha: ${fecha}\n` +
+    `• Viajeros: ${total} (adultos: ${adults}, menores: ${children})\n` +
     (d.contact_phone ? `• Teléfono: ${d.contact_phone}\n` : '') +
     `Revísalo y confirma abajo. Es una solicitud pendiente, no un pago.`
   );

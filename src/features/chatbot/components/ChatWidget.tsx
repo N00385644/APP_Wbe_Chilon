@@ -2,16 +2,16 @@ import { useEffect, useRef, useState } from 'react';
 import { MessageCircle, Send, Plus, X, Menu } from 'lucide-react';
 import { fetchTourCards, isTourPublished, resolvePublishedTourIdBySlug } from '../../../services/tours';
 import { fetchFaqCards } from '../../../services/faqs';
-import { createTourRequest } from '../../../services/requests';
-import { buildTourRequestPayload } from '../../../schemas/requests';
+import { createTourRequest, friendlySaveError } from '../../../services/requests';
+import { buildTourRequestPayload, createSubmitGuard, validateBookingDraft, validatePhoneOptional } from '../../../schemas/requests';
 import { searchCatalog } from '../engine/chatSearch';
 import { WaCta } from './WaCta';
 import { DraftCard } from './DraftCard';
 import { useAuth } from '../../../context/AuthContext';
 import {
   MAIN_MENU_OPTIONS, START_TEXT, FAQ_OPTIONS, BOOKING_DATE_OPTIONS, BOOKING_PAX_OPTIONS,
-  tourOptions, destinationOptions, fallbackDestinations, paxToNumbers, coerceTourLink,
-  bookingMissing, bookingSummary, type BookingDraft, type ChatOption, type MinimalTour,
+  tourOptions, destinationOptions, fallbackDestinations, coerceTourLink, isExactPax, PAX_RANGE_LABEL,
+  bookingSummary, type BookingDraft, type ChatOption, type MinimalTour,
 } from '../engine/chatTree';
 import {
   WHATSAPP_DISPLAY, BRAND_IMAGES,
@@ -47,6 +47,11 @@ export function ChatWidget() {
   const [tours, setTours] = useState<FullTour[]>([]);
   const [faqs, setFaqs] = useState<FaqRow[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
+  // Anti doble envío: bloquea una segunda confirmación concurrente y marca
+  // el borrador ya enviado para que sus botones no reenvíen (el reintento
+  // tras error sigue permitido porque la guardia se libera).
+  const guardRef = useRef(createSubmitGuard());
+  const [sentDraft, setSentDraft] = useState<Draft | null>(null);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs, open, menuOpen]);
 
@@ -58,7 +63,8 @@ export function ChatWidget() {
 
   const newChat = () => {
     setMsgs([{ role: 'assistant', content: WELCOME, showMenuBtn: true }]);
-    setError(null); setTrackingId(null); setInput('');
+    setError(null); setTrackingId(null); setSentDraft(null); setInput('');
+    guardRef.current.finish();
     setPending(null); setBooking({}); setMenuOpen(false); setMenuPick(null);
   };
 
@@ -188,18 +194,31 @@ export function ChatWidget() {
     }
     if (value === 'flexible' || value === 'finde' || value === 'semana') {
       const labelMap: Record<string, string> = { flexible: 'fecha flexible', finde: 'este fin de semana', semana: 'la próxima semana' };
-      const nb = { ...booking, preferred_date: null, additional_notes: `${booking.additional_notes ?? ''} [${labelMap[value]}]`.trim() };
+      const nb = { ...booking, preferred_date: null, date_is_flexible: true, additional_notes: `${booking.additional_notes ?? ''} [${labelMap[value]}]`.trim() };
       setBooking(nb);
-      pushAssistant('¿Cuántos viajeros son?', { options: BOOKING_PAX_OPTIONS });
+      pushAssistant(
+        value === 'flexible'
+          ? 'Perfecto, fecha flexible. ¿Cuántos viajeros son? (elige un rango)'
+          : `Anotado (${labelMap[value]}): coordinaremos el día exacto por WhatsApp. Ahora, ¿cuántos viajeros son?`,
+        { options: BOOKING_PAX_OPTIONS },
+      );
       setPending(null);
       return;
     }
     if (['1', '2', '3-5', '6+'].includes(value) && booking.requested_destination) {
-      const { adults, children } = paxToNumbers(value);
-      const nb = { ...booking, adults, children };
+      if (isExactPax(value)) {
+        const nb = { ...booking, adults: Number(value), children: 0, pax_range: value, pax_confirmed: true };
+        setBooking(nb);
+        pushAssistant('¿A qué teléfono te contactamos? (opcional — puedes omitirlo)', { options: [{ value: 'skipphone', label: 'Omitir por ahora' }] });
+        setPending('phone');
+        return;
+      }
+      // Rango: se guarda como referencia y se pide el número exacto.
+      // Nunca se convierte el rango en adultos/menores inventados.
+      const nb = { ...booking, pax_range: value, pax_confirmed: false, adults: undefined, children: undefined };
       setBooking(nb);
-      pushAssistant('¿A qué teléfono te contactamos? (opcional — puedes omitirlo)', { options: [{ value: 'skipphone', label: 'Omitir por ahora' }] });
-      setPending('phone');
+      pushAssistant(`Elegiste "${PAX_RANGE_LABEL[value]}". Escríbeme el número exacto de viajeros (ej. 4):`);
+      setPending(null);
       return;
     }
     if (value === 'skipphone') {
@@ -248,11 +267,43 @@ export function ChatWidget() {
     }
   };
 
-  // Cierre de reserva: resumen + envío a WhatsApp (requisito principal)
+  // Cierre de reserva: normaliza, valida con la fuente única de reglas y muestra
+  // el resumen con los mismos valores que irán a Supabase (resumen == payload).
   const finishBooking = (d: Draft) => {
-    const missing = bookingMissing(d);
-    const ready = missing.length === 0;
-    const full: Draft = { ...d, adults: d.adults ?? 1, children: d.children ?? 0, ready_to_confirm: ready, missing };
+    const checked = validateBookingDraft(d);
+    if (!checked.ok) {
+      const labels: Record<string, string> = {
+        destination: 'destino',
+        preferred_date: 'fecha',
+        adults: 'adultos',
+        children: 'menores',
+        contact_phone: 'teléfono',
+      };
+      const missing = Object.keys(checked.errors).map((k) => labels[k] ?? k);
+      const first = Object.values(checked.errors)[0];
+      const full: Draft = { ...d, ready_to_confirm: false, missing };
+      setBooking(full);
+      setPending(null);
+      pushAssistant(`${first} ${missing.length > 1 ? `También falta: ${missing.slice(1).join(', ')}.` : ''} Respóndelo aquí y lo corregimos.`, {
+        options: [{ value: 'menu', label: '⬅ Volver al menú' }],
+        draft: full,
+        waText: buildBookingMessage(full, tours.find((t) => t.slug === full.tour_slug)?.title),
+      });
+      return;
+    }
+    const p = checked.payload;
+    const full: Draft = {
+      ...d,
+      requested_destination: p.requested_destination ?? undefined,
+      preferred_date: p.preferred_date,
+      date_is_flexible: p.date_is_flexible,
+      adults: p.adults,
+      children: p.children,
+      contact_phone: p.contact_phone ?? undefined,
+      additional_notes: p.additional_notes ?? undefined,
+      ready_to_confirm: true,
+      missing: [],
+    };
     setBooking(full);
     setPending(null);
     pushAssistant(bookingSummary(full), {
@@ -264,25 +315,48 @@ export function ChatWidget() {
 
   const handleFreeTextForStep = (text: string): boolean => {
     if (pending === 'dest') {
-      const nb = { ...booking, requested_destination: text.slice(0, 200) };
-      setBooking(nb);
+      const dest = text.replace(/\s+/g, ' ').trim().slice(0, 200);
       pushUser(text);
+      if (!dest) {
+        pushAssistant('Ese destino quedó vacío. Escríbeme el lugar que quieres visitar (ej. Cumbemayo):');
+        return true;
+      }
+      const nb = { ...booking, requested_destination: dest };
+      setBooking(nb);
       pushAssistant('Anotado. ¿Para qué fecha te gustaría ir? (ej. 2026-11-20 o "fecha flexible")', { options: BOOKING_DATE_OPTIONS });
       setPending('date');
       return true;
     }
     if (pending === 'date') {
-      const m = text.match(/(\d{4}-\d{2}-\d{2})/);
-      const nb = { ...booking, preferred_date: m ? m[1] : null, additional_notes: m ? booking.additional_notes : `${booking.additional_notes ?? ''} [${text.slice(0, 100)}]`.trim() };
-      setBooking(nb);
       pushUser(text);
-      pushAssistant('¿Cuántos viajeros son? (ej. 2)', { options: BOOKING_PAX_OPTIONS });
+      const lower = text.toLowerCase();
+      if (/flexible/.test(lower) && !/\d{4}-\d{2}-\d{2}/.test(text)) {
+        const nb = { ...booking, preferred_date: null, date_is_flexible: true };
+        setBooking(nb);
+        pushAssistant('Perfecto, fecha flexible. ¿Cuántos viajeros son? (elige un rango)', { options: BOOKING_PAX_OPTIONS });
+        setPending(null);
+        return true;
+      }
+      const m = text.match(/(\d{4}-\d{2}-\d{2})/);
+      if (!m) {
+        pushAssistant('No veo una fecha válida. Escríbela como AAAA-MM-DD (ej. 2026-11-20) o elige fecha flexible:', { options: BOOKING_DATE_OPTIONS });
+        return true;
+      }
+      const nb = { ...booking, preferred_date: m[1], date_is_flexible: false };
+      setBooking(nb);
+      pushAssistant('¿Cuántos viajeros son? (elige un rango)', { options: BOOKING_PAX_OPTIONS });
       setPending(null);
       return true;
     }
     if (pending === 'phone') {
-      const nb = { ...booking, contact_phone: text.slice(0, 30) };
       pushUser(text);
+      const checked = validatePhoneOptional(text);
+      if (checked.error) {
+        pushAssistant(`${checked.error} Escríbelo de nuevo u omítelo:`, { options: [{ value: 'skipphone', label: 'Omitir por ahora' }] });
+        return true;
+      }
+      const nb = checked.value ? { ...booking, contact_phone: checked.value } : { ...booking };
+      if (!checked.value) delete nb.contact_phone;
       finishBooking(nb);
       return true;
     }
@@ -292,12 +366,18 @@ export function ChatWidget() {
       answerLocal(text);
       return true;
     }
-    if (booking.requested_destination && !booking.adults && /^\d{1,2}$/.test(text.trim())) {
-      const n = Math.min(20, Math.max(1, Number(text.trim())));
-      const nb = { ...booking, adults: n, children: 0 };
+    // Número exacto tras elegir rango, o atajo si aún no hay viajeros.
+    if (booking.requested_destination && /^\d{1,3}$/.test(text.trim())) {
+      const n = Number(text.trim());
+      if (!Number.isInteger(n) || n < 1 || n > 50) {
+        pushUser(text);
+        pushAssistant('Ese número no es válido. Escríbeme cuántos viajan, de 1 a 50 (ej. 4):');
+        return true;
+      }
+      const nb = { ...booking, adults: n, children: 0, pax_confirmed: true };
       setBooking(nb);
       pushUser(text);
-      pushAssistant('¿A qué teléfono te contactamos? (opcional)', { options: [{ value: 'skipphone', label: 'Omitir por ahora' }] });
+      pushAssistant(`Anotado: ${n} viajero${n === 1 ? '' : 's'}. ¿A qué teléfono te contactamos? (opcional)`, { options: [{ value: 'skipphone', label: 'Omitir por ahora' }] });
       setPending('phone');
       return true;
     }
@@ -364,6 +444,21 @@ export function ChatWidget() {
       setError('Para guardar tu solicitud aquí, primero inicia sesión con Google. O envíala directo por WhatsApp (no requiere cuenta).');
       return;
     }
+    // Anti doble envío: ignora clics concurrentes (el botón ya se deshabilita,
+    // pero pueden existir varios resúmenes visibles del mismo borrador).
+    if (!guardRef.current.tryStart()) return;
+    // El borrador ya enviado no se reenvía; para una nueva solicitud usa el menú.
+    if (sentDraft === draft) {
+      setError('Esta solicitud ya fue enviada. Revisa tu seguimiento arriba o abre una nueva desde el menú.');
+      return;
+    }
+    // Validación local primero: evita errores técnicos de la base de datos.
+    const checked = validateBookingDraft(draft);
+    if (!checked.ok) {
+      const first = Object.values(checked.errors)[0];
+      setError(`${first} Corrígela en el chat o continúa por WhatsApp (tus datos siguen aquí).`);
+      return;
+    }
     setSaving(true); setError(null);
     try {
       // Resolver slug -> id real contra tours publicados. Nunca inventar IDs ni
@@ -379,12 +474,14 @@ export function ChatWidget() {
       const payload = buildTourRequestPayload({ userId: session.user.id, draft, tourId });
       const data = await createTourRequest(payload);
       setTrackingId(data.id);
-      pushAssistant(`✅ Solicitud guardada con seguimiento: ${data.id} (pendiente, no es pago). También puedes reenviarla por WhatsApp para atención inmediata.`, {
+      setSentDraft(draft);
+      pushAssistant(`✅ Solicitud recibida (pendiente, no es pago). Seguimiento: ${data.id}. La agencia la revisará y te contactará para confirmar disponibilidad y precio. También puedes reenviarla por WhatsApp para atención inmediata.`, {
         waText: buildBookingMessage(draft, tours.find((t) => t.slug === draft.tour_slug)?.title),
       });
     } catch (e: unknown) {
-      setError(e instanceof Error ? `No se pudo guardar: ${e.message}` : 'No se pudo guardar la solicitud.');
+      setError(friendlySaveError(e));
     } finally {
+      guardRef.current.finish();
       setSaving(false);
     }
   };
@@ -437,7 +534,7 @@ export function ChatWidget() {
                   )}
                   {m.waText && <WaCta text={m.waText} />}
                   {m.draft && (m.draft.ready_to_confirm || (m.draft.missing?.length ?? 0) > 0 || m.draft.requested_destination) && (
-                    <DraftCard draft={m.draft} saving={saving} logged={!!session} onConfirm={confirmRequest} onLogin={signInWithGoogle} />
+                    <DraftCard draft={m.draft} saving={saving} logged={!!session} submitted={sentDraft === m.draft} onConfirm={confirmRequest} onLogin={signInWithGoogle} />
                   )}
                 </div>
               </div>

@@ -3,8 +3,8 @@
 import type { BookingDraft } from '../engine/chatTree';
 import { WHATSAPP_DISPLAY, waLink, buildBookingMessage } from '../data/whatsapp';
 
-export function DraftCard({ draft, saving, logged, onConfirm, onLogin }: {
-  draft: BookingDraft; saving: boolean; logged: boolean;
+export function DraftCard({ draft, saving, logged, submitted = false, onConfirm, onLogin }: {
+  draft: BookingDraft; saving: boolean; logged: boolean; submitted?: boolean;
   onConfirm: (d: BookingDraft) => void; onLogin: () => void;
 }) {
   const waText = buildBookingMessage(draft);
@@ -29,9 +29,9 @@ export function DraftCard({ draft, saving, logged, onConfirm, onLogin }: {
         Enviar por WhatsApp ({WHATSAPP_DISPLAY})
       </a>
       {logged ? (
-        <button disabled={saving || !(draft.ready_to_confirm ?? false)} onClick={() => onConfirm(draft)}
+        <button disabled={saving || submitted || !(draft.ready_to_confirm ?? false)} onClick={() => onConfirm(draft)}
           className="mt-2 w-full rounded-lg bg-andino-700 px-3 py-2 text-sm font-bold text-white disabled:opacity-40 hover:bg-andino-800">
-          {saving ? 'Guardando…' : 'También guardar en la web'}
+          {submitted ? '✅ Ya enviada' : saving ? 'Enviando…' : 'También guardar en la web'}
         </button>
       ) : (
         <button onClick={onLogin} className="mt-2 w-full rounded-lg border border-andino-700 px-3 py-2 text-sm font-bold text-andino-800 hover:bg-andino-50">

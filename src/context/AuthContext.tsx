@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import { validateName } from '../schemas/requests';
 
 export type Profile = {
   id: string; full_name: string | null; email: string | null;
@@ -102,8 +103,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updateName = async (name: string) => {
     if (!session?.user) return;
+    const checked = validateName(name);
+    if (checked.error || !checked.value) {
+      setError(checked.error ?? 'Nombre inválido.');
+      return;
+    }
     const { error } = await supabase.from('profiles')
-      .update({ full_name: name.trim() }).eq('id', session.user.id);
+      .update({ full_name: checked.value }).eq('id', session.user.id);
     if (error) setError(error.message);
     else await refreshProfile();
   };

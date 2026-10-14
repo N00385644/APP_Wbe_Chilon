@@ -5,6 +5,7 @@
 // por eso el chat muestra un "preview" interno + botón que abre wa.me.
 
 import type { BookingDraft } from '../engine/chatTree';
+import { totalTravelers } from '../../../schemas/requests';
 
 export const WHATSAPP_NUMBER = '51901195392';
 export const WHATSAPP_DISPLAY = '+51 901 195 392';
@@ -23,13 +24,16 @@ export const BRAND_IMAGES = {
 } as const;
 
 export function buildBookingMessage(d: BookingDraft, tourTitle?: string): string {
-  const total = Number(d.adults ?? 1) + Number(d.children ?? 0);
+  const adults = typeof d.adults === 'number' && Number.isInteger(d.adults) ? d.adults : 1;
+  const children = typeof d.children === 'number' && Number.isInteger(d.children) ? d.children : 0;
+  const total = totalTravelers(adults, children);
+  const fecha = d.preferred_date ?? (d.date_is_flexible ? 'flexible' : 'por definir');
   const lines = [
     'Hola Turismo Chilón, vengo del asistente web y quiero continuar por aquí.',
     '',
     `• Destino: ${d.requested_destination ?? tourTitle ?? '—'}`,
-    `• Fecha: ${d.preferred_date ?? 'flexible'}`,
-    `• Viajeros: ${total}`,
+    `• Fecha: ${fecha}`,
+    `• Viajeros: ${total} (adultos: ${adults}, menores: ${children})`,
   ];
   if (d.contact_phone) lines.push(`• Mi teléfono: ${d.contact_phone}`);
   if (d.additional_notes) lines.push(`• Notas: ${d.additional_notes.slice(0, 300)}`);

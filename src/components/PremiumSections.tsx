@@ -4,8 +4,8 @@ import { MapPin, Clock, ArrowRight, ShieldCheck, Snowflake, Satellite, Users, Ca
 import { TourCard } from '../features/tours/components/TourCard';
 import { Reveal } from './shared/Reveal';
 import { useAuth } from '../context/AuthContext';
-import { createTourRequest } from '../services/requests';
-import { buildTourRequestPayload } from '../schemas/requests';
+import { createTourRequest, friendlySaveError } from '../services/requests';
+import { buildTourRequestPayload, validateName, validateDestination, validatePreferredDate, validateTravelers } from '../schemas/requests';
 import type { Tour } from '../lib/types';
 import { SOCIALS } from '../lib/site';
 
@@ -145,32 +145,40 @@ export function ContactoSection({ tours }: { tours: Tour[] }) {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMsg(null);
-    if (nombre.trim().length < 2) { setMsg({ ok: false, text: 'Escribe tu nombre (mín. 2 caracteres).' }); return; }
-    if (!destino) { setMsg({ ok: false, text: 'Elige un destino de interés.' }); return; }
-    if (personas < 1 || personas > 50) { setMsg({ ok: false, text: 'Personas: entre 1 y 50.' }); return; }
-    if (!fecha) { setMsg({ ok: false, text: 'Elige la fecha deseada.' }); return; }
+    // Misma fuente de reglas que el chat (sin duplicar validaciones).
+    const name = validateName(nombre);
+    if (name.error) { setMsg({ ok: false, text: name.error }); return; }
+    const dest = validateDestination(destino);
+    if (dest.error) { setMsg({ ok: false, text: dest.error }); return; }
+    const trav = validateTravelers(personas, 0);
+    if (trav.errors.adults) { setMsg({ ok: false, text: trav.errors.adults }); return; }
+    const date = validatePreferredDate(fecha);
+    if (date.error) { setMsg({ ok: false, text: date.error }); return; }
+    if (!date.value) { setMsg({ ok: false, text: 'Elige la fecha deseada (o pídenos fecha flexible por WhatsApp).' }); return; }
     setBusy(true);
     try {
       if (user) {
         await createTourRequest(buildTourRequestPayload({
           userId: user.id,
           draft: {
-            requested_destination: destino,
-            preferred_date: fecha,
-            adults: personas,
+            // Validado arriba: dest.value es string aquí (dest.error cubre null).
+            requested_destination: dest.value as string,
+            preferred_date: date.value,
+            adults: trav.adults,
             children: 0,
-            additional_notes: `Contacto web — Nombre: ${nombre}`,
+            additional_notes: `Contacto web — Nombre: ${name.value}`,
           },
           tourId: null,
         }));
-        setMsg({ ok: true, text: 'Solicitud registrada en tu perfil. Te confirmaremos por WhatsApp.' });
+        setMsg({ ok: true, text: 'Solicitud registrada en tu perfil (pendiente, no es reserva). Te confirmaremos por WhatsApp.' });
       } else {
-        const text = encodeURIComponent(`Hola Turismo Chilón, soy ${nombre}. Me interesa: ${destino}. Personas: ${personas}. Fecha deseada: ${fecha}.`);
+        const text = encodeURIComponent(`Hola Turismo Chilón, soy ${name.value}. Me interesa: ${dest.value}. Personas: ${trav.adults}. Fecha deseada: ${date.value}.`);
         window.open(`https://wa.me/${SOCIALS.whatsapp}?text=${text}`, '_blank', 'noopener');
         setMsg({ ok: true, text: 'Te abrimos WhatsApp con tu consulta lista. Inicia sesión para guardarla en tu perfil.' });
       }
     } catch (err) {
-      setMsg({ ok: false, text: err instanceof Error ? err.message : 'No se pudo enviar. Intenta por WhatsApp.' });
+      // No se afirma registro: los valores del formulario se conservan.
+      setMsg({ ok: false, text: friendlySaveError(err) });
     } finally {
       setBusy(false);
     }
