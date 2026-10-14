@@ -15,6 +15,7 @@ import {
   validateTravelers,
 } from '../schemas/requests';
 import { bookingMissing, bookingSummary, isExactPax } from '../features/chatbot/engine/chatTree';
+import * as chatTree from '../features/chatbot/engine/chatTree';
 import { friendlySaveError } from '../services/requests';
 
 // Mediodía en Lima del 2026-10-14 (fijo para pruebas deterministas).
@@ -161,6 +162,9 @@ describe('borrador completo (resumen == payload)', () => {
 });
 
 describe('árbol: rangos exigen número exacto (sin inventar)', () => {
+  it('paxToNumbers legacy fue retirado (transición Fase 4)', () => {
+    expect('paxToNumbers' in chatTree).toBe(false);
+  });
   it('solo 1 y 2 son exactos', () => {
     expect(isExactPax('1')).toBe(true);
     expect(isExactPax('2')).toBe(true);
@@ -180,6 +184,14 @@ describe('árbol: rangos exigen número exacto (sin inventar)', () => {
       NOW,
     );
     expect(m).toEqual([]);
+  });
+  it('rango sin exacto no pasa la validación de borrador (adultos requeridos)', () => {
+    const checked = validateBookingDraft(
+      { requested_destination: 'X', preferred_date: '2026-11-20', pax_range: '3-5', pax_confirmed: false },
+      NOW,
+    );
+    expect(checked.ok).toBe(false);
+    if (!checked.ok) expect(checked.errors.adults).toBeTruthy();
   });
 });
 

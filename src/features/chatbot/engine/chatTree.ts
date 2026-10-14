@@ -78,16 +78,6 @@ export function fallbackDestinations(): ChatOption[] {
   return FALLBACKS.map((d) => ({ value: `dest:${d}`, label: d }));
 }
 
-export function paxToNumbers(v: string): { adults: number; children: number } {
-  // LEGACY: solo '1'/'2' son exactos. Para rangos ('3-5', '6+') el árbol debe
-  // pedir el número exacto (ver PAX_RANGE_LABEL + pax_confirmed) en lugar de
-  // inventar adultos/menores. Se conserva por compatibilidad.
-  if (v === '1') return { adults: 1, children: 0 };
-  if (v === '2') return { adults: 2, children: 0 };
-  if (v === '3-5') return { adults: 3, children: 0 };
-  return { adults: 6, children: 0 };
-}
-
 export const PAX_RANGE_LABEL: Record<string, string> = {
   '1': '1 viajero',
   '2': '2 viajeros',

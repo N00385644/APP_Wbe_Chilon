@@ -33,7 +33,7 @@ queda ambiguo.
 7. `0006_harden_profiles.sql`
 8. `0007_check_request_tour.sql`
 
-Futuras migraciones usan `0007_*`, `0008_*`, … Nunca reutilizar `0003`.
+Futuras migraciones usan `0008_*`, `0009_*`, … Nunca reutilizar `0003`.
 
 ## Comprobaciones de solo lectura (antes de desplegar)
 
