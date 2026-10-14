@@ -79,6 +79,17 @@ export function paxToNumbers(v: string): { adults: number; children: number } {
   return { adults: 6, children: 0 };
 }
 
+/**
+ * Sanea un tour_id candidato: solo acepta UUID válido, nunca un slug.
+ * Un slug jamás equivale a un UUID: si llega un slug u otro texto,
+ * devuelve null (la solicitud sigue válida como destino libre).
+ */
+export function coerceTourLink(tourId: string | null | undefined): string | null {
+  if (!tourId) return null;
+  const v = tourId.trim();
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v) ? v : null;
+}
+
 /** Paso de reserva -> valida qué falta para confirmar (misma regla que el guardado web). */
 export function bookingMissing(d: BookingDraft): string[] {
   const missing: string[] = [];

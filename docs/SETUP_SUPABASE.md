@@ -6,7 +6,8 @@
 4. Aplica migraciones **en orden** por SQL Editor (o `supabase db push` con CLI).
    Orden canónico: `0001_schema.sql`, `0002_seed_demo.sql`, `0003_tour_images.sql`,
    `0003_tour_schedule.sql` (ver nota de colisión en `docs/MIGRATIONS.md`),
-   `0004_seed_chilon.sql`, `0005_whatsapp_photos.sql`, `0006_harden_profiles.sql`.
+   `0004_seed_chilon.sql`, `0005_whatsapp_photos.sql`, `0006_harden_profiles.sql`,
+   `0007_check_request_tour.sql`.
    No renombres ficheros ya aplicados en producción sin reconciliación previa.
 5. Verifica que existan: profiles, tours, faqs, tour_requests, conversations, messages, unanswered_questions, con RLS activado.
 6. No desplegar funciones de IA: el asistente es local (ver docs/AI_KEYS.md — retiro).

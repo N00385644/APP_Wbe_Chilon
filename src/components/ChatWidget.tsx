@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import {
   MAIN_MENU_OPTIONS, START_TEXT, FAQ_OPTIONS, BOOKING_DATE_OPTIONS, BOOKING_PAX_OPTIONS,
-  tourOptions, destinationOptions, fallbackDestinations, paxToNumbers,
+  tourOptions, destinationOptions, fallbackDestinations, paxToNumbers, coerceTourLink,
   bookingMissing, bookingSummary, type BookingDraft, type ChatOption, type MinimalTour,
 } from '../lib/chatTree';
 import {
@@ -410,9 +410,23 @@ export function ChatWidget() {
     try {
       const adults = Math.max(1, Number(draft.adults ?? 1));
       const children = Math.max(0, Number(draft.children ?? 0));
+      // Resolver slug -> id real contra tours publicados. Nunca inventar IDs ni
+      // asumir que el slug equivale al UUID. Si no hay tour válido, tour_id queda
+      // null y la solicitud sigue válida como destino libre.
+      let tourId: string | null = coerceTourLink(draft.tour_id);
+      const slug = draft.tour_slug?.slice(0, 100);
+      if (slug) {
+        const { data: t } = await supabase.from('tours').select('id')
+          .eq('slug', slug).eq('is_published', true).single();
+        tourId = (t as { id: string } | null)?.id ? coerceTourLink((t as { id: string }).id) : null;
+      } else if (tourId) {
+        const { data: t } = await supabase.from('tours').select('id')
+          .eq('id', tourId).eq('is_published', true).single();
+        tourId = (t as { id: string } | null)?.id ? tourId : null;
+      }
       const payload = {
         user_id: session.user.id,
-        tour_id: draft.tour_id ?? null,
+        tour_id: tourId,
         requested_destination: (draft.requested_destination ?? '').slice(0, 200) || null,
         preferred_date: draft.preferred_date ?? null,
         date_is_flexible: false,
