@@ -1,6 +1,6 @@
 // Árbol de decisiones del chat — conversación guiada estilo WhatsApp.
-// Estructura: intents fijos (70-90% de casos) + texto libre como fallback a la IA
-// (Edge Function con grounding en tours/faqs) + escalamiento a humano.
+// Estructura: intents fijos por botones + texto libre con búsqueda local
+// en tours/faqs publicados + escalamiento a WhatsApp. Sin IA ni servicios externos.
 
 export type ChatOption = { value: string; label: string };
 
@@ -79,7 +79,7 @@ export function paxToNumbers(v: string): { adults: number; children: number } {
   return { adults: 6, children: 0 };
 }
 
-/** Paso de reserva -> valida qué falta para confirmar (misma regla que la Edge Function). */
+/** Paso de reserva -> valida qué falta para confirmar (misma regla que el guardado web). */
 export function bookingMissing(d: BookingDraft): string[] {
   const missing: string[] = [];
   if (!d.requested_destination) missing.push('destino');

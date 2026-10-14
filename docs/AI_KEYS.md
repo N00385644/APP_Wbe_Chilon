@@ -1,37 +1,37 @@
-# Claves de IA (secretos de Edge Functions)
+# Claves de IA — RETIRADO (Fase 1)
 
-Referencia: https://supabase.com/docs/guides/functions/secrets
+El asistente de esta aplicación es un **árbol de decisiones determinista local**
+(`src/lib/chatTree.ts` + `src/components/ChatWidget.tsx`). No usa proveedores de
+IA, modelos LLM ni API keys.
 
-Solo el proveedor seleccionado es obligatorio (inicial: Gemini).
-
-```bash
-supabase secrets set GEMINI_API_KEY=tu-clave-de-aistudio
-supabase secrets set AI_PROVIDER=gemini
-supabase secrets set AI_MODEL=gemini-1.5-flash
-# Opcionales a futuro:
-# supabase secrets set OPENAI_API_KEY=...
-# supabase secrets set GROQ_API_KEY=...
-```
-
-## Proveedor de respaldo (fallback automático)
-
-Si el proveedor principal falla tras los reintentos, la función usa el respaldo sin tocar el frontend:
+- La Edge Function `supabase/functions/chat-assistant` fue **retirada** del repo
+  y deshabilitada en `supabase/config.toml` (`enabled = false`).
+- **No configures** `GEMINI_API_KEY`, `OPENAI_API_KEY`, `GROQ_API_KEY`,
+  `NVIDIA_API_KEY`, `AI_PROVIDER`, `AI_MODEL` ni respaldos.
+- Si algún entorno todavía tiene la función desplegada, retírala así:
 
 ```bash
-supabase secrets set NVIDIA_API_KEY=tu-clave-nvapi
-supabase secrets set AI_BACKUP_PROVIDER=nvidia
-supabase secrets set AI_BACKUP_MODEL=meta/llama-3.1-8b-instruct
+# 1. Verificar si existe en el proyecto remoto
+supabase functions list
+
+# 2. Eliminar el despliegue remoto (requiere acceso al proyecto)
+supabase functions delete chat-assistant
+
+# 3. Eliminar secretos huérfanos si existieran
+supabase secrets unset GEMINI_API_KEY AI_PROVIDER AI_MODEL AI_BACKUP_PROVIDER AI_BACKUP_MODEL OPENAI_API_KEY GROQ_API_KEY NVIDIA_API_KEY OPENROUTER_API_KEY
+
+# 4. Verificar
+supabase functions list
+supabase secrets list
 ```
 
-Consigue la clave gratis en https://build.nvidia.com (perfil → API Keys, empieza con `nvapi-...`).
-Otros modelos NVIDIA válidos: `meta/llama-3.1-70b-instruct`, `mistralai/mixtral-8x7b-instruct-v0.1`.
-Para quitar el respaldo: `supabase secrets unset AI_BACKUP_PROVIDER AI_BACKUP_MODEL`.
+- No borres las tablas `conversations`, `messages` ni `unanswered_questions`
+  automáticamente: conservan historial. Su limpieza, si procede, requiere
+  autorización y respaldo previo.
+- El cierre de conversación es por **WhatsApp** (`src/lib/whatsapp.ts`, deep-link
+  `wa.me` sin API keys) y guardado de **solicitud pendiente** en `tour_requests`.
 
-Consigue la clave en https://aistudio.google.com/apikey
+Reglas vigentes:
 
-Reglas:
-- Nunca uses VITE_* para secretos.
-- Nunca los pongas en tablas, en el repo ni en el panel.
-- Nunca aparecen en errores ni respuestas del chat.
-- Sin la clave, el chat devuelve error 503 controlado y conserva el mensaje.
-- Cambiar de proveedor es solo cambiar AI_PROVIDER / AI_MODEL en secretos y redesplegar. Sin tocar el frontend.
+- Nunca uses `VITE_*` para secretos.
+- Nunca pongas `service_role` en el frontend.

@@ -1,3 +1,3 @@
 [functions.chat-assistant]
-enabled = true
-enable_invoke = true
+enabled = false
+enable_invoke = false

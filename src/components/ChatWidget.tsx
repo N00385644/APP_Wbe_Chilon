@@ -30,7 +30,7 @@ type FaqRow = { category: string; question: string; answer: string };
 // WhatsApp bloquea iframes (X-Frame-Options), así que no se puede "abrir el
 // WhatsApp dentro del chat". En su lugar: preview del mensaje + botón que
 // abre wa.me (en móvil abre la app, en PC abre WhatsApp Web) con texto listo
-// para que el agente IA de WhatsApp Business continúe.
+// para que el asesor de la empresa continúe.
 function WaCta({ text, label = 'Continuar en WhatsApp' }: { text: string; label?: string }) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
@@ -58,7 +58,7 @@ function WaCta({ text, label = 'Continuar en WhatsApp' }: { text: string; label?
           {copied ? <Check size={15} className="text-green-700" /> : <Copy size={15} />}
         </button>
       </div>
-      <p className="mt-1 text-[10px] text-stone-500">Al abrirse WhatsApp solo pulsa Enviar — el agente IA de la empresa te atiende allí.</p>
+      <p className="mt-1 text-[10px] text-stone-500">Al abrirse WhatsApp solo pulsa Enviar — el equipo de la empresa te atiende allí.</p>
     </div>
   );
 }
@@ -81,7 +81,7 @@ export function ChatWidget() {
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs, open, menuOpen]);
 
-  // Catálogo local (lectura pública, sin API keys de IA)
+  // Catálogo local (lectura pública)
   useEffect(() => {
     supabase.from('tours')
       .select('slug,title,destination,duration,price_from,currency,short_description,meeting_point,includes')
@@ -110,7 +110,7 @@ export function ChatWidget() {
   const money = (t: FullTour) =>
     t.price_from != null ? `S/ ${Number(t.price_from).toFixed(2)}${t.currency && t.currency !== 'PEN' ? ` ${t.currency}` : ''}` : 'a consultar';
 
-  // ---------- Navegación del árbol (100% local, sin IA) ----------
+  // ---------- Navegación del árbol (100% local) ----------
   const route = async (value: string, label: string) => {
     pushUser(label);
     setError(null);
@@ -256,7 +256,7 @@ export function ChatWidget() {
       setPending('faq_other');
       return;
     }
-    // Respuesta 100% local desde la tabla faqs (sin IA)
+    // Respuesta 100% local desde la tabla faqs
     const needles: Record<string, string[]> = {
       pagos: ['pago', 'precio', 'pagar', 'yape', 'plin', 'transferencia', 'cuesta'],
       cancel: ['cancel', 'cambio', 'reembolso', 'devuelv'],
@@ -340,7 +340,7 @@ export function ChatWidget() {
     return false;
   };
 
-  // Búsqueda local por palabras clave (reemplaza a la IA): tours + faqs publicados
+  // Búsqueda local por palabras clave: tours + faqs publicados
   const answerLocal = (text: string) => {
     const q = text.toLowerCase();
     const tourHit = tours.find((t) =>
@@ -373,7 +373,7 @@ export function ChatWidget() {
       return;
     }
     pushAssistant(
-      'No encontré ese dato en el catálogo publicado. Te derivo al WhatsApp de la empresa, donde su agente IA te responde con la info oficial.',
+      'No encontré ese dato en el catálogo publicado. Te derivo al WhatsApp de la empresa, donde su equipo te responde con la info oficial.',
       {
         options: [
           { value: 'booking', label: 'Dejar una solicitud' },
@@ -529,7 +529,7 @@ export function ChatWidget() {
                   >
                     Enviar
                   </button>
-                  <p className="mt-2 text-center text-[11px] text-stone-400">Sin IA externa: todo el menú funciona offline del proveedor. El cierre es por WhatsApp.</p>
+                  <p className="mt-2 text-center text-[11px] text-stone-400">Menú guiado local. El cierre es por WhatsApp.</p>
                 </div>
               </div>
             )}

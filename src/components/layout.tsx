@@ -248,8 +248,8 @@ export function Hero() {
             <p className="text-xs sm:text-sm text-stone-300 mt-1">Flota moderna con GPS y SOAT</p>
           </div>
           <div className="glass-panel-dark rounded-2xl p-4 text-center border border-white/10 shadow-sm hover:border-andino-400/40 transition-colors">
-            <p className="text-2xl sm:text-3xl font-extrabold text-amber-300">Asistencia IA</p>
-            <p className="text-xs sm:text-sm text-stone-300 mt-1">Cotizaciones 24/7 en tiempo real</p>
+            <p className="text-2xl sm:text-3xl font-extrabold text-amber-300">Asistente guiado</p>
+            <p className="text-xs sm:text-sm text-stone-300 mt-1">Menú paso a paso 24/7 en la web</p>
           </div>
         </div>
       </div>

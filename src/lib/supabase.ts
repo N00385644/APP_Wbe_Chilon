@@ -8,4 +8,3 @@ if (!url || !key) {
 }
 
 export const supabase = createClient(url ?? '', key ?? '');
-export const FUNCTIONS_URL = url ? `${url}/functions/v1` : '';

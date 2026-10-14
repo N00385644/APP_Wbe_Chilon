@@ -1,6 +1,6 @@
 // WhatsApp Business de Turismo Chilón — handoff del árbol de decisiones.
-// Sin API keys: se usa deep-link wa.me con texto pre-rellenado. El agente IA
-// de WhatsApp Business (ya activo en ese número) continúa la conversación allí.
+// Sin API keys: se usa deep-link wa.me con texto pre-rellenado. El equipo de
+// la empresa continúa la conversación allí.
 // Nota técnica: WhatsApp no permite iframe embebido (X-Frame-Options: DENY),
 // por eso el chat muestra un "preview" interno + botón que abre wa.me.
 

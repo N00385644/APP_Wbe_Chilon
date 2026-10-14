@@ -467,7 +467,7 @@ function StatsAdmin() {
         <h3 className="font-bold">Preguntas no respondidas por el chatbot</h3>
         <ul className="mt-2 space-y-1 text-xs text-stone-600">
           {unanswered.map((u, i) => <li key={i} className="rounded-lg bg-stone-50 p-2">{u.content} <span className="text-stone-400">· {formatFechaHoraLima(u.created_at)}</span></li>)}
-          {unanswered.length === 0 && <li>Sin registros. El backend guarda aquí lo que la IA no pudo responder.</li>}
+          {unanswered.length === 0 && <li>Sin registros. Aquí aparecen las consultas que el menú guiado no pudo resolver.</li>}
         </ul>
       </div>
     </div>

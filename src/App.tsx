@@ -92,7 +92,7 @@ function Home() {
                   </span>
                   <div>
                     <strong className="block text-sm text-white">Consulta tus tours favoritos</strong>
-                    <span className="text-xs text-white/75">Revisa destinos o chatea con nuestro asistente virtual inteligente.</span>
+                    <span className="text-xs text-white/75">Revisa destinos o chatea con nuestro asistente virtual guiado.</span>
                   </div>
                 </li>
                 <li className="flex items-start gap-3">
