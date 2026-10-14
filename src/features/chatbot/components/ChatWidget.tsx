@@ -494,7 +494,8 @@ export function ChatWidget() {
       >
         {open ? <X size={22} /> : <MessageCircle size={24} />}
       </button>
-      {open && (        <section aria-label="Asistente virtual de tours" className="fixed bottom-20 right-4 z-50 flex h-[70vh] w-[calc(100vw-2rem)] max-w-md flex-col overflow-hidden rounded-2xl border border-stone-200 bg-[#ece5dd] shadow-2xl">
+      {open && (
+        <section aria-label="Asistente virtual de tours" className="fixed bottom-20 right-4 z-50 flex h-[70vh] w-[calc(100vw-2rem)] max-w-md flex-col overflow-hidden rounded-2xl border border-stone-200 bg-[#ece5dd] shadow-2xl">
           <header className="flex items-center gap-2 bg-[#075e54] px-4 py-3 text-white">
             <img src={BRAND_IMAGES.logo} alt="Turismo Chilón" className="h-8 w-8 rounded-full bg-white object-contain p-0.5" loading="lazy" />
             <div>
