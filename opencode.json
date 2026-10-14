@@ -1,0 +1,14 @@
+{
+  "mcp": {
+    "servers": {
+      "3d-assets": {
+        "type": "remote",
+        "url": "https://3d.shep.bot/mcp"
+      },
+      "brushstroke": {
+        "type": "local",
+        "command": ["node", "mcp/brushstroke/dist/index.js"]
+      }
+    }
+  }
+}
