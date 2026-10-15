@@ -35,6 +35,7 @@ export function buildBookingMessage(d: BookingDraft, tourTitle?: string): string
     `• Fecha: ${fecha}`,
     `• Viajeros: ${total} (adultos: ${adults}, menores: ${children})`,
   ];
+  if (d.requested_seats) lines.push(`• Asiento(s) preferido(s): ${d.requested_seats}`);
   if (d.contact_phone) lines.push(`• Mi teléfono: ${d.contact_phone}`);
   if (d.additional_notes) lines.push(`• Notas: ${d.additional_notes.slice(0, 300)}`);
   lines.push('', '¿Me confirman disponibilidad y precio? Gracias.');

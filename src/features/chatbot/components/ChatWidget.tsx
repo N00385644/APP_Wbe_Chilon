@@ -7,6 +7,7 @@ import { buildTourRequestPayload, createSubmitGuard, validateBookingDraft, valid
 import { searchCatalog } from '../engine/chatSearch';
 import { WaCta } from './WaCta';
 import { DraftCard } from './DraftCard';
+import { SeatPicker } from './SeatPicker';
 import { useAuth } from '../../../context/AuthContext';
 import {
   MAIN_MENU_OPTIONS, START_TEXT, FAQ_OPTIONS, BOOKING_DATE_OPTIONS, BOOKING_PAX_OPTIONS,
@@ -52,6 +53,7 @@ export function ChatWidget() {
   // tras error sigue permitido porque la guardia se libera).
   const guardRef = useRef(createSubmitGuard());
   const [sentDraft, setSentDraft] = useState<Draft | null>(null);
+  const [seatPickerOpen, setSeatPickerOpen] = useState(false);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs, open, menuOpen]);
 
@@ -66,6 +68,7 @@ export function ChatWidget() {
     setError(null); setTrackingId(null); setSentDraft(null); setInput('');
     guardRef.current.finish();
     setPending(null); setBooking({}); setMenuOpen(false); setMenuPick(null);
+    setSeatPickerOpen(false);
   };
 
   const pushAssistant = (content: string, opts?: { options?: ChatOption[]; showMenuBtn?: boolean; draft?: Draft | null; waText?: string | null }) => {
@@ -209,8 +212,13 @@ export function ChatWidget() {
       if (isExactPax(value)) {
         const nb = { ...booking, adults: Number(value), children: 0, pax_range: value, pax_confirmed: true };
         setBooking(nb);
-        pushAssistant('¿A qué teléfono te contactamos? (opcional — puedes omitirlo)', { options: [{ value: 'skipphone', label: 'Omitir por ahora' }] });
-        setPending('phone');
+        pushAssistant(`Anotado: ${value} viajero${Number(value) > 1 ? 's' : ''}. ¿Deseas ver los asientos disponibles y elegir tu lugar en el minibús turístico?`, {
+          options: [
+            { value: 'choose_seats', label: '💺 Ver y elegir asientos' },
+            { value: 'skip_seats', label: 'Asignación automática' },
+          ],
+        });
+        setPending(null);
         return;
       }
       // Rango: se guarda como referencia y se pide el número exacto.
@@ -219,6 +227,19 @@ export function ChatWidget() {
       setBooking(nb);
       pushAssistant(`Elegiste "${PAX_RANGE_LABEL[value]}". Escríbeme el número exacto de viajeros (ej. 4):`);
       setPending(null);
+      return;
+    }
+    if (value === 'choose_seats') {
+      setSeatPickerOpen(true);
+      return;
+    }
+    if (value === 'skip_seats') {
+      const nb = { ...booking, requested_seats: null };
+      setBooking(nb);
+      pushAssistant('Asignación automática seleccionada. ¿A qué teléfono te contactamos? (opcional — puedes omitirlo)', {
+        options: [{ value: 'skipphone', label: 'Omitir por ahora' }],
+      });
+      setPending('phone');
       return;
     }
     if (value === 'skipphone') {
@@ -377,8 +398,13 @@ export function ChatWidget() {
       const nb = { ...booking, adults: n, children: 0, pax_confirmed: true };
       setBooking(nb);
       pushUser(text);
-      pushAssistant(`Anotado: ${n} viajero${n === 1 ? '' : 's'}. ¿A qué teléfono te contactamos? (opcional)`, { options: [{ value: 'skipphone', label: 'Omitir por ahora' }] });
-      setPending('phone');
+      pushAssistant(`Anotado: ${n} viajero${n === 1 ? '' : 's'}. ¿Deseas ver los asientos disponibles y elegir tu lugar en el minibús turístico?`, {
+        options: [
+          { value: 'choose_seats', label: '💺 Ver y elegir asientos' },
+          { value: 'skip_seats', label: 'Asignación automática' },
+        ],
+      });
+      setPending(null);
       return true;
     }
     return false;
@@ -437,6 +463,23 @@ export function ChatWidget() {
     setMenuOpen(false);
     setMenuPick(null);
     if (opt) void route(opt.value, opt.label);
+  };
+
+  const handleSeatConfirm = (seats: string[]) => {
+    setSeatPickerOpen(false);
+    const seatsStr = seats.length > 0 ? seats.sort().join(', ') : null;
+    const nb = { ...booking, requested_seats: seatsStr };
+    setBooking(nb);
+    if (seatsStr) {
+      pushAssistant(`¡Listo! Asiento(s) ${seatsStr} seleccionado(s). ¿A qué teléfono te contactamos? (opcional — puedes omitirlo)`, {
+        options: [{ value: 'skipphone', label: 'Omitir por ahora' }],
+      });
+    } else {
+      pushAssistant('Asignación automática confirmada. ¿A qué teléfono te contactamos? (opcional — puedes omitirlo)', {
+        options: [{ value: 'skipphone', label: 'Omitir por ahora' }],
+      });
+    }
+    setPending('phone');
   };
 
   const confirmRequest = async (draft: Draft) => {
@@ -535,7 +578,7 @@ export function ChatWidget() {
                   )}
                   {m.waText && <WaCta text={m.waText} />}
                   {m.draft && (m.draft.ready_to_confirm || (m.draft.missing?.length ?? 0) > 0 || m.draft.requested_destination) && (
-                    <DraftCard draft={m.draft} saving={saving} logged={!!session} submitted={sentDraft === m.draft} onConfirm={confirmRequest} onLogin={signInWithGoogle} />
+                    <DraftCard draft={m.draft} saving={saving} logged={!!session} submitted={sentDraft === m.draft} onConfirm={confirmRequest} onLogin={signInWithGoogle} onEditSeats={() => setSeatPickerOpen(true)} />
                   )}
                 </div>
               </div>
@@ -547,6 +590,21 @@ export function ChatWidget() {
               <div role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-xs text-red-800">{error}</div>
             )}
             <div ref={bottomRef} />
+
+            {seatPickerOpen && (
+              <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 p-2 overflow-y-auto" onClick={() => setSeatPickerOpen(false)}>
+                <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm my-auto">
+                  <SeatPicker
+                    tourTitle={booking.requested_destination}
+                    date={booking.preferred_date}
+                    maxSeats={Number(booking.adults ?? 1) + Number(booking.children ?? 0)}
+                    initialSelected={booking.requested_seats ? booking.requested_seats.split(',').map((s) => s.trim()) : []}
+                    onConfirm={handleSeatConfirm}
+                    onClose={() => setSeatPickerOpen(false)}
+                  />
+                </div>
+              </div>
+            )}
 
             {menuOpen && (
               <div className="absolute inset-0 z-10 flex items-end bg-black/40" onClick={() => setMenuOpen(false)}>

@@ -36,7 +36,7 @@ function RequestsAdmin() {
   const [page, setPage] = useState(0);
   const [note, setNote] = useState<Record<string, string>>({});
   // Campos de logística confirmada (solo visibles/editables por admin)
-  const [sched, setSched] = useState<Record<string, { confirmed_date: string; departure_time: string; meeting_point: string; departure_notes: string }>>({});
+  const [sched, setSched] = useState<Record<string, { confirmed_date: string; departure_time: string; meeting_point: string; departure_notes: string; confirmed_seats: string }>>({});
   const PAGE = 15;
 
   const schedOf = (r: TourRequest) => sched[r.id] ?? {
@@ -44,6 +44,7 @@ function RequestsAdmin() {
     departure_time: r.departure_time?.slice(0, 5) ?? '',
     meeting_point: r.meeting_point ?? '',
     departure_notes: r.departure_notes ?? '',
+    confirmed_seats: r.confirmed_seats ?? r.requested_seats ?? '',
   };
 
   const load = async () => {
@@ -72,6 +73,7 @@ function RequestsAdmin() {
       departure_time: s.departure_time || null,
       meeting_point: s.meeting_point || null,
       departure_notes: s.departure_notes || null,
+      confirmed_seats: s.confirmed_seats || null,
     }).eq('id', r.id);
     if (error) alert(error.message); else load();
   };
@@ -98,7 +100,12 @@ function RequestsAdmin() {
               <span className="rounded-full bg-stone-100 px-2 py-0.5 text-xs">{REQUEST_STATUS_LABEL[r.status] ?? r.status}</span>
               <span className="ml-auto text-xs text-stone-400">{formatFechaHoraLima(r.created_at)} · {r.travelers_count} viajeros · {r.preferred_date ?? 'sin fecha'}</span>
             </div>
-            <p className="mt-1 text-xs text-stone-500">ID: {r.id} · tel: {r.contact_phone ?? '—'} · notas: {r.additional_notes ?? '—'}</p>
+            <p className="mt-1 text-xs text-stone-500">
+              ID: {r.id} · tel: {r.contact_phone ?? '—'}
+              {r.requested_seats ? ` · Asiento solicitado: [${r.requested_seats}]` : ''}
+              {r.confirmed_seats ? ` · Asiento asignado: [${r.confirmed_seats}]` : ''}
+              {r.additional_notes ? ` · notas: ${r.additional_notes}` : ''}
+            </p>
             <div className="mt-2 flex flex-col sm:flex-row gap-2">
               <select value={r.status} onChange={(e) => setStatusRow(r, e.target.value)} className="rounded-lg border border-stone-300 px-2 py-1 text-sm">
                 {STATUSES.map((s) => <option key={s} value={s}>{REQUEST_STATUS_LABEL[s]}</option>)}
@@ -124,6 +131,12 @@ function RequestsAdmin() {
                     <input type="time" value={schedOf(r).departure_time}
                       onChange={(e) => setSched({ ...sched, [r.id]: { ...schedOf(r), departure_time: e.target.value } })}
                       className="mt-1 w-full rounded-lg border border-stone-300 px-2 py-1 text-sm" />
+                  </label>
+                  <label className="text-xs text-stone-600 sm:col-span-2">
+                    Asiento(s) confirmados / asignados {r.requested_seats && <span className="text-stone-400 font-normal">(el cliente solicitó: {r.requested_seats})</span>}
+                    <input value={schedOf(r).confirmed_seats} placeholder="Ej. 03, 04 (Hyundai H350: asientos del 01 al 15)"
+                      onChange={(e) => setSched({ ...sched, [r.id]: { ...schedOf(r), confirmed_seats: e.target.value } })}
+                      className="mt-1 w-full rounded-lg border border-stone-300 px-2 py-1 text-sm font-semibold text-emerald-950" />
                   </label>
                   <label className="text-xs text-stone-600 sm:col-span-2">
                     Punto de partida

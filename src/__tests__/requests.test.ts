@@ -38,4 +38,18 @@ describe('buildTourRequestPayload', () => {
     expect(clampTravelers(0, 0)).toEqual({ adults: 1, children: 0 });
     expect(clampTravelers(99, 99)).toEqual({ adults: 50, children: 50 });
   });
+  it('incluye requested_seats cuando está presente en el borrador', () => {
+    const p = buildTourRequestPayload({
+      userId: 'u1',
+      draft: {
+        requested_destination: 'Cumbemayo',
+        preferred_date: '2026-11-20',
+        adults: 2,
+        children: 0,
+        requested_seats: '03, 04',
+      },
+      tourId: null,
+    });
+    expect(p.requested_seats).toBe('03, 04');
+  });
 });

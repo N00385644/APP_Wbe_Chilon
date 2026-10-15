@@ -16,6 +16,7 @@ de solo lectura antes de desplegar.
 | `0005_whatsapp_photos.sql` | Tour `transporte-movilidades` + galería WhatsApp + captions + limpieza norte | 0004 |
 | `0006_harden_profiles.sql` (Fase 1) | Trigger `profiles_is_admin_guard` + función `prevent_is_admin_self_change()` | 0001 |
 | `0007_check_request_tour.sql` (Fase 1) | Trigger `tour_requests_tour_published_check`: `tour_id` solo a tours publicados (solo valida al cambiar el vínculo; NULL = destino libre) | 0001 |
+| `0008_seat_selection.sql` | Columnas `requested_seats`, `confirmed_seats` + función RPC `get_occupied_seats` | 0001, 0003_tour_schedule |
 
 Los dos ficheros `0003_*` son independientes entre sí (uno crea tabla nueva,
 el otro altera `tour_requests`). El conflicto es solo de **numeración**:
@@ -32,8 +33,9 @@ queda ambiguo.
 6. `0005_whatsapp_photos.sql`
 7. `0006_harden_profiles.sql`
 8. `0007_check_request_tour.sql`
+9. `0008_seat_selection.sql`
 
-Futuras migraciones usan `0008_*`, `0009_*`, … Nunca reutilizar `0003`.
+Futuras migraciones usan `0009_*`, … Nunca reutilizar `0003`.
 
 ## Comprobaciones de solo lectura (antes de desplegar)
 

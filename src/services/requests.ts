@@ -16,12 +16,60 @@ export type CreateRequestInput = {
   contact_phone: string | null;
   additional_notes: string | null;
   status: 'pending';
+  requested_seats?: string | null;
+  confirmed_seats?: string | null;
 };
 
 export async function createTourRequest(payload: CreateRequestInput): Promise<{ id: string }> {
   const { data, error } = await supabase.from('tour_requests').insert(payload).select('id').single();
   if (error) throw new Error(error.message);
   return data as { id: string };
+}
+
+/**
+ * Consulta los asientos ya ocupados para un tour y fecha determinados.
+ * Utiliza la función RPC segura get_occupied_seats o fallback directo.
+ */
+export async function fetchOccupiedSeats(params: { tourId?: string | null; date?: string | null }): Promise<string[]> {
+  if (!params.date) return [];
+  try {
+    const { data: rpcData, error: rpcError } = await supabase.rpc('get_occupied_seats', {
+      p_tour_id: params.tourId || null,
+      p_date: params.date,
+    });
+    if (!rpcError && Array.isArray(rpcData)) {
+      return (rpcData as { seat: string }[]).map((r) => r.seat).filter(Boolean);
+    }
+  } catch {
+    // Si la RPC no está presente aún en el entorno, fallback a consulta directa
+  }
+
+  try {
+    let query = supabase
+      .from('tour_requests')
+      .select('requested_seats, confirmed_seats')
+      .neq('status', 'cancelled');
+
+    if (params.tourId) query = query.eq('tour_id', params.tourId);
+    query = query.or(`confirmed_date.eq.${params.date},and(confirmed_date.is.null,preferred_date.eq.${params.date})`);
+
+    const { data, error } = await query;
+    if (error || !data) return [];
+
+    const set = new Set<string>();
+    for (const r of data) {
+      const s = r.confirmed_seats || r.requested_seats;
+      if (s) {
+        s.split(',').forEach((x: string) => {
+          const trimmed = x.trim();
+          if (trimmed) set.add(trimmed);
+        });
+      }
+    }
+    return Array.from(set);
+  } catch {
+    return [];
+  }
 }
 
 export async function fetchMyRequests(userId: string): Promise<TourRequest[]> {

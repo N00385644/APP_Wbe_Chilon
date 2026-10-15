@@ -249,6 +249,7 @@ export function validateBookingDraft(d: BookingDraft, dateNow?: Date): DraftVali
       contact_phone: phone.value,
       additional_notes: validateNotes(d.additional_notes),
       status: 'pending',
+      requested_seats: d.requested_seats ? normalizeText(d.requested_seats, 100) : null,
     },
   };
 }
@@ -290,6 +291,7 @@ export function buildTourRequestPayload(args: {
         contact_phone: String(draft.contact_phone ?? '').trim().slice(0, LIMITS.phone) || null,
         additional_notes: validateNotes(draft.additional_notes),
         status: 'pending' as const,
+        requested_seats: draft.requested_seats ? normalizeText(draft.requested_seats, 100) : null,
       };
   return { user_id: args.userId, tour_id, ...base };
 }

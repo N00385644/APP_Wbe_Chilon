@@ -28,6 +28,9 @@ export type TourRequest = {
   // Logística confirmada por la agencia (solo admin la edita)
   confirmed_date: string | null; departure_time: string | null;
   meeting_point: string | null; departure_notes: string | null;
+  // Asientos del vehículo turístico (solicitados por cliente / confirmados por admin)
+  requested_seats: string | null;
+  confirmed_seats: string | null;
 };
 
 /** Solicitud confirmada con datos del tour asociado (para el calendario). */

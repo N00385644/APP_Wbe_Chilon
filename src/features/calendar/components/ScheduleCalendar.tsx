@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CalendarDays, ChevronLeft, ChevronRight, Clock, MapPinned, Backpack, MessageSquare } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight, Clock, MapPinned, Backpack, MessageSquare, Armchair } from 'lucide-react';
 import type { ScheduledRequest } from '../../../lib/types';
 import {
   MONTHS_ES, WEEKDAYS_ES, buildMonthGrid, shiftMonth,
   todayISO, formatHoraEs, formatFechaCortaEs,
 } from '../../../lib/calendar';
 import { SOCIALS } from '../../../lib/site';
+import { SeatPicker } from '../../chatbot/components/SeatPicker';
 
 /** Agrupa los tours confirmados por fecha ISO ('YYYY-MM-DD'). */
 function groupByDate(schedule: ScheduledRequest[]): Record<string, ScheduledRequest[]> {
@@ -20,11 +21,13 @@ function groupByDate(schedule: ScheduledRequest[]): Record<string, ScheduledRequ
 
 /** Panel con todos los detalles logísticos del tour seleccionado. */
 function TourDayDetail({ r }: { r: ScheduledRequest }) {
+  const [showSeatMap, setShowSeatMap] = useState(false);
   const meetingPoint = r.meeting_point ?? r.tours?.meeting_point ?? 'Por confirmar con la agencia';
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(meetingPoint + ', Cajamarca, Perú')}`;
   const waText = encodeURIComponent(
     `Hola, tengo un tour confirmado (${r.tours?.title ?? r.requested_destination ?? 'tour'}) el ${r.confirmed_date}. Quisiera coordinar detalles. ID: ${r.id}`
   );
+  const assignedSeats = r.confirmed_seats || r.requested_seats;
 
   return (
     <aside className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm text-sm lg:sticky lg:top-20" aria-live="polite">
@@ -61,6 +64,24 @@ function TourDayDetail({ r }: { r: ScheduledRequest }) {
           </div>
         </div>
         <div className="flex gap-2">
+          <Armchair size={16} className="text-andino-600 shrink-0 mt-0.5" />
+          <div className="w-full">
+            <dt className="text-xs font-bold uppercase text-stone-500">Asiento en el vehículo</dt>
+            <dd className="text-stone-800 font-semibold mt-0.5 flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 border border-emerald-300 px-2.5 py-1 text-xs font-extrabold text-emerald-900 shadow-sm">
+                💺 {r.confirmed_seats ? `Asiento(s): ${r.confirmed_seats}` : r.requested_seats ? `Solicitado: ${r.requested_seats}` : 'Asignación al abordar'}
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowSeatMap(true)}
+                className="text-xs font-bold text-andino-700 underline hover:text-andino-900 transition-colors"
+              >
+                Ver en plano 3D/2D →
+              </button>
+            </dd>
+          </div>
+        </div>
+        <div className="flex gap-2">
           <MapPinned size={16} className="text-andino-600 shrink-0 mt-0.5" />
           <div>
             <dt className="text-xs font-bold uppercase text-stone-500">Punto de partida</dt>
@@ -81,6 +102,26 @@ function TourDayDetail({ r }: { r: ScheduledRequest }) {
           </div>
         </div>
       </dl>
+
+      {showSeatMap && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setShowSeatMap(false)}
+        >
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm">
+            <SeatPicker
+              readOnly
+              tourTitle={r.tours?.title ?? r.requested_destination ?? 'Tour'}
+              date={r.confirmed_date}
+              highlightSeats={(assignedSeats ?? '')
+                .split(',')
+                .map((s) => s.trim())
+                .filter(Boolean)}
+              onClose={() => setShowSeatMap(false)}
+            />
+          </div>
+        </div>
+      )}
 
       <p className="mt-4 text-xs text-stone-500 border-t border-stone-100 pt-3">
         Viajeros: <b>{r.travelers_count}</b> · Duración: <b>{r.tours?.duration ?? '—'}</b>

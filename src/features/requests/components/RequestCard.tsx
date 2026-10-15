@@ -31,6 +31,18 @@ export function RequestCard({ r, onChanged }: { r: TourRequest; onChanged: () =>
         Fecha preferida: <b>{r.preferred_date ?? '—'}</b> · Viajeros: <b>{r.travelers_count}</b> (adultos {r.adults}, menores {r.children}) · Teléfono: <b>{r.contact_phone ?? '—'}</b>
       </p>
 
+      {(r.confirmed_seats || r.requested_seats) && (
+        <p className="mt-1.5 text-xs text-stone-700 font-medium">
+          <span className="inline-flex items-center gap-1 rounded-md bg-stone-100 border border-stone-200 px-2 py-0.5 text-[11px]">
+            💺 {r.confirmed_seats ? (
+              <span className="text-emerald-800 font-bold">Asiento confirmado: {r.confirmed_seats}</span>
+            ) : (
+              <span className="text-stone-600">Asiento preferido: {r.requested_seats}</span>
+            )}
+          </span>
+        </p>
+      )}
+
       {r.additional_notes && <p className="mt-1 text-xs text-stone-500 italic">Notas: {r.additional_notes}</p>}
       <p className="mt-2 font-mono text-[11px] text-stone-400">ID Seguimiento: {r.id}</p>
 

@@ -21,6 +21,8 @@ export type BookingDraft = {
   tour_slug?: string | null;
   ready_to_confirm?: boolean;
   missing?: string[];
+  /** Asiento(s) elegido(s) o preferido(s) en el minibús (ej. '03, 04'). */
+  requested_seats?: string | null;
 };
 
 export const MAIN_MENU_OPTIONS: ChatOption[] = [
@@ -170,6 +172,7 @@ export function bookingSummary(d: BookingDraft): string {
     `• Destino: ${dest}\n` +
     `• Fecha: ${fecha}\n` +
     `• Viajeros: ${total} (adultos: ${adults}, menores: ${children})\n` +
+    (d.requested_seats ? `• Asiento(s) elegido(s): ${d.requested_seats}\n` : '') +
     (d.contact_phone ? `• Teléfono: ${d.contact_phone}\n` : '') +
     `Revísalo y confirma abajo. Es una solicitud pendiente, no un pago.`
   );
