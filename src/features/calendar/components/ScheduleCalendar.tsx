@@ -30,7 +30,7 @@ function TourDayDetail({ r }: { r: ScheduledRequest }) {
   const assignedSeats = r.confirmed_seats || r.requested_seats;
 
   return (
-    <aside className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm text-sm lg:sticky lg:top-20" aria-live="polite">
+    <aside className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm text-sm" aria-live="polite">
       <h3 className="text-xs font-bold uppercase tracking-wider text-andino-700">Detalles de tu tour</h3>
       <div className="mt-3 flex items-start gap-3">
         {r.tours?.image_url ? (
@@ -166,17 +166,25 @@ export function ScheduleCalendar({ schedule, loading }: { schedule: ScheduledReq
   };
 
   if (loading) {
-    return <p className="py-12 text-center text-sm text-stone-500">Cargando tu calendario…</p>;
+    return (
+      <div role="status" aria-live="polite" className="grid gap-5 lg:grid-cols-[1fr_320px]">
+        <div className="skeleton h-96 bg-white/70 p-5">
+          <p className="text-sm font-semibold text-stone-500">Cargando tu calendario…</p>
+        </div>
+        <div className="skeleton h-48 bg-white/70" />
+      </div>
+    );
   }
 
   if (schedule.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-stone-300 bg-white p-10 text-center">
-        <p className="text-3xl">🗓️</p>
-        <p className="mt-2 text-sm text-stone-600">
-          Aún no tienes tours programados. Cuando la agencia confirme tu reserva con fecha, hora y punto de partida, aparecerá aquí.
+      <div role="status" className="empty-state bg-white p-10">
+        <p className="text-3xl" aria-hidden>🗓️</p>
+        <p className="mt-2 text-sm font-bold text-stone-800">Aún no tienes tours programados</p>
+        <p className="mt-1 text-sm text-stone-600">
+          Cuando la agencia confirme tu reserva con fecha, hora y punto de partida, aparecerá aquí.
         </p>
-        <Link to="/tours" className="mt-3 inline-block font-bold text-andino-700 underline text-sm">
+        <Link to="/tours" className="mt-3 inline-flex min-h-11 items-center font-bold text-andino-700 underline underline-offset-4 text-sm">
           Explorar tours
         </Link>
       </div>
@@ -189,7 +197,7 @@ export function ScheduleCalendar({ schedule, loading }: { schedule: ScheduledReq
         {/* Cabecera con navegación de mes */}
         <div className="flex items-center justify-between gap-2">
           <button onClick={() => goMonth(-1)} aria-label="Mes anterior"
-            className="rounded-lg border border-stone-200 p-2 text-stone-600 hover:bg-stone-50 transition-colors">
+            className="rounded-lg border border-stone-200 p-2 text-stone-600 hover:bg-stone-50 hover:border-stone-300 focus-visible:outline-2 focus-visible:outline-andino-600 transition-colors min-h-11 min-w-11 grid place-items-center disabled:opacity-40">
             <ChevronLeft size={18} />
           </button>
           <h2 className="text-lg font-extrabold text-stone-900 capitalize">
@@ -201,7 +209,7 @@ export function ScheduleCalendar({ schedule, loading }: { schedule: ScheduledReq
               Hoy
             </button>
             <button onClick={() => goMonth(1)} aria-label="Mes siguiente"
-              className="rounded-lg border border-stone-200 p-2 text-stone-600 hover:bg-stone-50 transition-colors">
+              className="rounded-lg border border-stone-200 p-2 text-stone-600 hover:bg-stone-50 hover:border-stone-300 focus-visible:outline-2 focus-visible:outline-andino-600 transition-colors min-h-11 min-w-11 grid place-items-center">
               <ChevronRight size={18} />
             </button>
           </div>
@@ -219,6 +227,7 @@ export function ScheduleCalendar({ schedule, loading }: { schedule: ScheduledReq
                 const dayEvents = eventsByDate[cell.iso] ?? [];
                 const isToday = cell.iso === tISO;
                 const isSelected = cell.iso === effectiveISO;
+                const isUpcoming = cell.iso >= tISO;
                 return (
                   <button
                     key={di}
@@ -228,7 +237,7 @@ export function ScheduleCalendar({ schedule, loading }: { schedule: ScheduledReq
                       ? `${cell.date.getDate()}: ${dayEvents.length} tour(s) confirmado(s)`
                       : String(cell.date.getDate())}
                     aria-selected={isSelected}
-                    className={`h-14 sm:h-20 border p-1 text-left align-top transition-colors
+                    className={`h-14 sm:h-20 border p-1 text-left align-top transition-colors focus-visible:outline-2 focus-visible:outline-andino-600 focus-visible:outline-offset-[-2px]
                       ${isSelected ? 'border-andino-400 bg-andino-50 ring-1 ring-andino-300' : 'border-stone-100'}
                       ${dayEvents.length > 0 ? 'cursor-pointer hover:bg-emerald-50/60' : 'cursor-default'}`}
                   >
@@ -240,7 +249,13 @@ export function ScheduleCalendar({ schedule, loading }: { schedule: ScheduledReq
                       {dayEvents.map((r) => (
                         <span key={r.id}
                           className="block truncate rounded-md bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800">
-                          🟢 {r.tours?.title ?? r.requested_destination ?? 'Tour'}
+                          {/* Punto CSS (no emoji): idéntico en todo SO. Late solo si el tour
+                              es próximo — los tours pasados quedan quietos. */}
+                          <span
+                            aria-hidden="true"
+                            className={`mr-1 inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 align-middle ${isUpcoming ? 'cal-dot' : ''}`}
+                          />
+                          {r.tours?.title ?? r.requested_destination ?? 'Tour'}
                         </span>
                       ))}
                     </div>

@@ -20,12 +20,6 @@ export type CreateRequestInput = {
   confirmed_seats?: string | null;
 };
 
-export async function createTourRequest(payload: CreateRequestInput): Promise<{ id: string }> {
-  const { data, error } = await supabase.from('tour_requests').insert(payload).select('id').single();
-  if (error) throw new Error(error.message);
-  return data as { id: string };
-}
-
 /**
  * Consulta los asientos ya ocupados para un tour y fecha determinados.
  * Utiliza la función RPC segura get_occupied_seats o fallback directo.

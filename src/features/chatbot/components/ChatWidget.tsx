@@ -1,17 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { MessageCircle, Send, Plus, X, Menu } from 'lucide-react';
-import { fetchTourCards, isTourPublished, resolvePublishedTourIdBySlug } from '../../../services/tours';
+import { fetchTourCards } from '../../../services/tours';
 import { fetchFaqCards } from '../../../services/faqs';
-import { createTourRequest, friendlySaveError } from '../../../services/requests';
-import { buildTourRequestPayload, createSubmitGuard, validateBookingDraft, validatePhoneOptional } from '../../../schemas/requests';
+import { validateBookingDraft, validatePhoneOptional } from '../../../schemas/requests';
 import { searchCatalog } from '../engine/chatSearch';
 import { WaCta } from './WaCta';
 import { DraftCard } from './DraftCard';
 import { SeatPicker } from './SeatPicker';
-import { useAuth } from '../../../context/AuthContext';
 import {
   MAIN_MENU_OPTIONS, START_TEXT, FAQ_OPTIONS, BOOKING_DATE_OPTIONS, BOOKING_PAX_OPTIONS,
-  tourOptions, destinationOptions, fallbackDestinations, coerceTourLink, isExactPax, PAX_RANGE_LABEL,
+  tourOptions, destinationOptions, fallbackDestinations, isExactPax, PAX_RANGE_LABEL,
   bookingSummary, type BookingDraft, type ChatOption, type MinimalTour,
 } from '../engine/chatTree';
 import {
@@ -34,13 +32,10 @@ type FullTour = MinimalTour & {
 type FaqRow = { category: string; question: string; answer: string };
 
 export function ChatWidget() {
-  const { session, signInWithGoogle } = useAuth();
   const [open, setOpen] = useState(false);
   const [msgs, setMsgs] = useState<ChatMsg[]>([{ role: 'assistant', content: WELCOME, showMenuBtn: true }]);
   const [input, setInput] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [trackingId, setTrackingId] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPick, setMenuPick] = useState<string | null>(null);
   const [pending, setPending] = useState<PendingStep>(null);
@@ -48,11 +43,6 @@ export function ChatWidget() {
   const [tours, setTours] = useState<FullTour[]>([]);
   const [faqs, setFaqs] = useState<FaqRow[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
-  // Anti doble envío: bloquea una segunda confirmación concurrente y marca
-  // el borrador ya enviado para que sus botones no reenvíen (el reintento
-  // tras error sigue permitido porque la guardia se libera).
-  const guardRef = useRef(createSubmitGuard());
-  const [sentDraft, setSentDraft] = useState<Draft | null>(null);
   const [seatPickerOpen, setSeatPickerOpen] = useState(false);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs, open, menuOpen]);
@@ -65,8 +55,7 @@ export function ChatWidget() {
 
   const newChat = () => {
     setMsgs([{ role: 'assistant', content: WELCOME, showMenuBtn: true }]);
-    setError(null); setTrackingId(null); setSentDraft(null); setInput('');
-    guardRef.current.finish();
+    setError(null); setInput('');
     setPending(null); setBooking({}); setMenuOpen(false); setMenuPick(null);
     setSeatPickerOpen(false);
   };
@@ -482,78 +471,31 @@ export function ChatWidget() {
     setPending('phone');
   };
 
-  const confirmRequest = async (draft: Draft) => {
-    if (!session?.user) {
-      setError('Para guardar tu solicitud aquí, primero inicia sesión con Google. O envíala directo por WhatsApp (no requiere cuenta).');
-      return;
-    }
-    // Anti doble envío: ignora clics concurrentes (el botón ya se deshabilita,
-    // pero pueden existir varios resúmenes visibles del mismo borrador).
-    if (!guardRef.current.tryStart()) return;
-    // El borrador ya enviado no se reenvía; para una nueva solicitud usa el menú.
-    if (sentDraft === draft) {
-      setError('Esta solicitud ya fue enviada. Revisa tu seguimiento arriba o abre una nueva desde el menú.');
-      return;
-    }
-    // Validación local primero: evita errores técnicos de la base de datos.
-    const checked = validateBookingDraft(draft);
-    if (!checked.ok) {
-      const first = Object.values(checked.errors)[0];
-      setError(`${first} Corrígela en el chat o continúa por WhatsApp (tus datos siguen aquí).`);
-      return;
-    }
-    setSaving(true); setError(null);
-    try {
-      // Resolver slug -> id real contra tours publicados. Nunca inventar IDs ni
-      // asumir que el slug equivale al UUID. Si no hay tour válido, tour_id queda
-      // null y la solicitud sigue válida como destino libre.
-      let tourId: string | null = coerceTourLink(draft.tour_id);
-      const slug = draft.tour_slug?.slice(0, 100);
-      if (slug) {
-        tourId = await resolvePublishedTourIdBySlug(slug);
-      } else if (tourId) {
-        tourId = (await isTourPublished(tourId)) ? tourId : null;
-      }
-      const payload = buildTourRequestPayload({ userId: session.user.id, draft, tourId });
-      const data = await createTourRequest(payload);
-      setTrackingId(data.id);
-      setSentDraft(draft);
-      pushAssistant(`✅ Solicitud recibida (pendiente, no es pago). Seguimiento: ${data.id}. La agencia la revisará y te contactará para confirmar disponibilidad y precio. También puedes reenviarla por WhatsApp para atención inmediata.`, {
-        waText: buildBookingMessage(draft, tours.find((t) => t.slug === draft.tour_slug)?.title),
-      });
-    } catch (e: unknown) {
-      setError(friendlySaveError(e));
-    } finally {
-      guardRef.current.finish();
-      setSaving(false);
-    }
-  };
-
   return (
     <>
       <button
-        onClick={() => setOpen(!open)} aria-label="Abrir asistente virtual"
-        className="fixed bottom-5 right-5 z-50 grid h-14 w-14 place-items-center rounded-full bg-andino-700 text-white shadow-lg hover:bg-andino-800"
+        onClick={() => setOpen(!open)} aria-label={open ? 'Cerrar asistente virtual' : 'Abrir asistente virtual'} aria-expanded={open}
+        className="fab fixed bottom-5 right-5 z-50 grid h-14 w-14 place-items-center rounded-full bg-andino-700 text-white shadow-lg hover:bg-andino-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-oro-500"
       >
         {open ? <X size={22} /> : <MessageCircle size={24} />}
       </button>
       {open && (
-        <section aria-label="Asistente virtual de tours" className="fixed bottom-20 right-4 z-50 flex h-[70vh] w-[calc(100vw-2rem)] max-w-md flex-col overflow-hidden rounded-2xl border border-stone-200 bg-[#ece5dd] shadow-2xl">
+        <section role="dialog" aria-modal="false" aria-label="Asistente virtual de tours" className="enter-pop origin-bottom-right fixed bottom-20 right-4 z-50 flex h-[70vh] max-h-[640px] min-h-[420px] w-[calc(100vw-2rem)] max-w-md flex-col overflow-hidden rounded-2xl border border-stone-200 bg-[#ece5dd] shadow-2xl">
           <header className="flex items-center gap-2 bg-[#075e54] px-4 py-3 text-white">
             <img src={BRAND_IMAGES.logo} alt="Turismo Chilón" className="h-8 w-8 rounded-full bg-white object-contain p-0.5" loading="lazy" />
             <div>
               <p className="text-sm font-bold leading-none">Turismo Chilón · Cajamarca Tours</p>
               <p className="text-xs text-white/70">Menú guiado · cierre por WhatsApp {WHATSAPP_DISPLAY}</p>
             </div>
-            <button onClick={newChat} title="Nueva conversación" className="ml-auto rounded-lg p-1.5 hover:bg-white/10" aria-label="Nueva conversación">
+            <button onClick={newChat} title="Nueva conversación" className="ml-auto rounded-lg p-1.5 transition-[background-color,transform] duration-160 hover:bg-white/10 active:scale-90" aria-label="Nueva conversación">
               <Plus size={18} />
             </button>
           </header>
 
-          <div role="log" aria-live="polite" className="chat-scroll relative flex-1 space-y-3 overflow-y-auto px-3 py-4">
+          <div role="log" aria-live="polite" aria-label="Conversación con el asistente" className="chat-scroll relative flex-1 space-y-3 overflow-y-auto scroll-smooth px-3 py-4">
             {msgs.map((m, i) => (
               <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[88%] rounded-xl px-3 py-2 text-sm whitespace-pre-wrap shadow-sm ${m.role === 'user' ? 'bg-[#dcf8c6] text-stone-900' : 'bg-white text-stone-800'}`}>
+                <div className={`max-w-[88%] rounded-xl px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap shadow-sm ${m.role === 'user' ? 'bg-[#dcf8c6] text-stone-900' : 'bg-white text-stone-800'}`}>
                   {m.content}
                   {m.showMenuBtn && m.role === 'assistant' && (
                     <button
@@ -564,12 +506,12 @@ export function ChatWidget() {
                     </button>
                   )}
                   {m.options && m.options.length > 0 && (
-                    <div className="mt-2 space-y-1.5">
+                    <div className="mt-2 space-y-1.5" role="group" aria-label="Opciones de respuesta">
                       {m.options.map((op) => (
                         <button
                           key={op.value}
                           onClick={() => void route(op.value, op.label)}
-                          className="block w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-center text-[13px] font-medium text-[#00a0e9] shadow-sm hover:bg-stone-50"
+                          className="block w-full min-h-11 rounded-lg border border-stone-200 bg-white px-3 py-2.5 text-center text-[13px] font-medium text-[#00a0e9] shadow-sm transition-[background-color,border-color,transform] duration-150 hover:bg-stone-50 hover:border-stone-300 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-[#00a884]"
                         >
                           {op.label}
                         </button>
@@ -578,22 +520,19 @@ export function ChatWidget() {
                   )}
                   {m.waText && <WaCta text={m.waText} />}
                   {m.draft && (m.draft.ready_to_confirm || (m.draft.missing?.length ?? 0) > 0 || m.draft.requested_destination) && (
-                    <DraftCard draft={m.draft} saving={saving} logged={!!session} submitted={sentDraft === m.draft} onConfirm={confirmRequest} onLogin={signInWithGoogle} onEditSeats={() => setSeatPickerOpen(true)} />
+                    <DraftCard draft={m.draft} onEditSeats={() => setSeatPickerOpen(true)} />
                   )}
                 </div>
               </div>
             ))}
-            {trackingId && (
-              <p className="rounded-xl bg-green-50 px-3 py-2 text-xs text-green-800">Seguimiento: {trackingId}</p>
-            )}
             {error && (
-              <div role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-xs text-red-800">{error}</div>
+              <div role="alert" className="alert-error">{error}</div>
             )}
             <div ref={bottomRef} />
 
             {seatPickerOpen && (
-              <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 p-2 overflow-y-auto" onClick={() => setSeatPickerOpen(false)}>
-                <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm my-auto">
+              <div className="fade-enter absolute inset-0 z-20 flex items-center justify-center bg-black/60 p-2 overflow-y-auto" onClick={() => setSeatPickerOpen(false)}>
+                <div onClick={(e) => e.stopPropagation()} className="enter-pop w-full max-w-sm my-auto">
                   <SeatPicker
                     tourTitle={booking.requested_destination}
                     date={booking.preferred_date}
@@ -607,10 +546,10 @@ export function ChatWidget() {
             )}
 
             {menuOpen && (
-              <div className="absolute inset-0 z-10 flex items-end bg-black/40" onClick={() => setMenuOpen(false)}>
+              <div className="fade-enter absolute inset-0 z-10 flex items-end bg-black/40" onClick={() => setMenuOpen(false)}>
                 <div
                   role="dialog" aria-label="Menú principal"
-                  className="w-full rounded-t-2xl bg-white p-4 shadow-xl"
+                  className="enter-sheet w-full rounded-t-2xl bg-white p-4 shadow-xl"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-stone-300" />
@@ -653,17 +592,16 @@ export function ChatWidget() {
               id="chat-input" enterKeyHint="send" maxLength={2000} autoComplete="off"
               value={input} onChange={(e) => setInput(e.target.value)}
               placeholder={pending === 'dest' ? 'Escribe el destino…' : pending === 'date' ? 'Ej. 2026-11-20 o flexible…' : pending === 'phone' ? 'Teléfono (opcional)…' : 'Elige una opción o escribe…'}
-              className="min-h-11 flex-1 rounded-full border border-stone-300 bg-white px-4 text-sm focus:border-andino-500 focus:outline-none"
+              aria-label="Escribe tu mensaje para el asistente"
+              className="min-h-11 flex-1 rounded-full border border-stone-300 bg-white px-4 text-sm caret-[#00a884] placeholder:text-stone-500 transition-colors focus:border-andino-500 focus:outline-none focus:ring-2 focus:ring-andino-500/25"
             />
-            <button type="submit" aria-label="Enviar mensaje" disabled={!input.trim()} className="grid h-11 w-11 place-items-center rounded-full bg-[#00a884] text-white disabled:opacity-40 hover:bg-[#009678]">
+            <button type="submit" aria-label="Enviar mensaje" disabled={!input.trim()} className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#00a884] text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#009678] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00a884] transition-[background-color,transform] duration-160 active:scale-90">
               <Send size={17} />
             </button>
           </form>
-          {!session && (
-            <p className="border-t border-stone-100 bg-white px-3 py-2 text-[11px] text-stone-500">
-              Sin cuenta puedes usar el menú y WhatsApp. Para guardar historial aquí, <button onClick={signInWithGoogle} className="underline font-semibold text-andino-700">continúa con Google</button>.
-            </p>
-          )}
+          <p className="border-t border-stone-100 bg-white px-3 py-2 text-[11px] text-stone-500">
+            Tus datos no se guardan en la web. La atención continúa directamente por WhatsApp.
+          </p>
         </section>
       )}
     </>

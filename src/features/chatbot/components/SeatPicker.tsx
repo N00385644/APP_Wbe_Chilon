@@ -129,7 +129,7 @@ export function SeatPicker({
       <div className="flex items-start justify-between border-b border-stone-100 pb-3">
         <div>
           <span className="inline-flex items-center gap-1 rounded-full bg-andino-50 px-2.5 py-0.5 text-[11px] font-bold text-andino-700">
-            🚍 Hyundai H350 Turismo Chilón
+            🚍 Nuestras movilidades · Turismo Chilón
           </span>
           <h3 className="mt-1 text-base font-extrabold text-stone-900">
             {readOnly ? 'Ubicación de tu Asiento' : 'Selecciona tus Asientos'}
@@ -287,7 +287,7 @@ export function SeatPicker({
             type="button"
             onClick={handleConfirm}
             disabled={selected.length === 0}
-            className="flex-1 rounded-xl bg-andino-700 py-2.5 text-xs font-bold text-white shadow-md hover:bg-andino-800 disabled:opacity-40 transition-all flex items-center justify-center gap-1.5"
+            className="flex-1 rounded-xl bg-andino-700 py-2.5 text-xs font-bold text-white shadow-md hover:bg-andino-800 disabled:opacity-40 transition-colors flex items-center justify-center gap-1.5"
           >
             <Armchair size={15} />
             Confirmar Asiento{selected.length > 1 ? 's' : ''} ({selected.length})
@@ -337,7 +337,7 @@ function renderSeatButton(
       onMouseEnter={() => onHover(seat)}
       onMouseLeave={() => onHover(null)}
       aria-label={`Asiento ${seat.label} ${isOccupied ? 'ocupado' : isSelected ? 'seleccionado' : 'disponible'}`}
-      className={`relative flex flex-col items-center justify-center rounded-xl transition-all ${
+      className={`relative flex flex-col items-center justify-center rounded-xl transition-[transform,background-color,border-color,box-shadow] duration-160 ${
         compact ? 'py-1.5 px-0.5' : 'py-2 px-1'
       } ${style}`}
     >

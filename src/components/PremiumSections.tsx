@@ -3,9 +3,7 @@ import { Link } from 'react-router-dom';
 import { MapPin, Clock, ArrowRight, ShieldCheck, Snowflake, Satellite, Users, CalendarDays, Send } from 'lucide-react';
 import { TourCard } from '../features/tours/components/TourCard';
 import { Reveal } from './shared/Reveal';
-import { useAuth } from '../context/AuthContext';
-import { createTourRequest, friendlySaveError } from '../services/requests';
-import { buildTourRequestPayload, validateName, validateDestination, validatePreferredDate, validateTravelers } from '../schemas/requests';
+import { validateName, validateDestination, validatePreferredDate, validateTravelers } from '../schemas/requests';
 import type { Tour } from '../lib/types';
 import { SOCIALS } from '../lib/site';
 
@@ -25,7 +23,7 @@ export function DestinosSection({ tours }: { tours: Tour[] }) {
             </h2>
             <p className="mt-1 text-sm text-stone-500">Fotos reales, descripciones claras y consulta directa por destino.</p>
           </div>
-          <Link to="/tours" className="inline-flex items-center gap-1 text-sm font-bold text-andino-700 hover:translate-x-1 transition-all">
+          <Link to="/tours" className="inline-flex items-center gap-1 text-sm font-bold text-andino-700 mouse:hover:translate-x-1 transition-transform duration-160">
             <span>Ver todos los circuitos</span><ArrowRight size={16} />
           </Link>
         </div>
@@ -52,10 +50,9 @@ export function MovilidadSection() {
     <section aria-labelledby="movilidad-title" className="mt-16 sm:mt-20 overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-xl">
       <div className="grid gap-0 lg:grid-cols-2">
         <div className="relative min-h-[280px] bg-stone-950">
-          <img src="/tours/wa-bus-01.jpg" alt="Hyundai H350 Solati blanca de Turismo Chilón en campo cajamarquino" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
+          <img src="/tours/wa-bus-01.jpg" alt="Movilidad blanca de Turismo Chilón en campo cajamarquino" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent" />
           <div className="absolute bottom-4 left-4 right-4 flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-white/90 px-3 py-1 text-[11px] font-bold text-stone-800">Hyundai H350 Solati · 2019</span>
             <span className="rounded-full bg-amber-400 px-3 py-1 text-[11px] font-bold text-stone-900">Flota propia</span>
           </div>
         </div>
@@ -63,7 +60,7 @@ export function MovilidadSection() {
           <Reveal>
             <span className="text-xs font-bold uppercase tracking-wider text-andino-700">Nuestra movilidad</span>
             <h2 id="movilidad-title" className="mt-1 text-2xl sm:text-3xl font-extrabold text-stone-900 tracking-tight">
-              Viaja en la H350 Solati
+              Viaja en nuestras movilidades
             </h2>
             <p className="mt-2 text-sm text-stone-600 leading-relaxed">
               La protagonista 3D del inicio es nuestra unidad real: mírala arriba en 360° y aquí
@@ -74,7 +71,7 @@ export function MovilidadSection() {
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             {feats.map((f, i) => (
               <Reveal key={f.title} delay={i * 70}>
-                <div className="rounded-2xl border border-stone-200 bg-stone-50/70 p-4 hover:shadow-md hover:-translate-y-0.5 transition-all">
+                <div className="rounded-2xl border border-stone-200 bg-stone-50/70 p-4 mouse:hover:-translate-y-0.5 mouse:hover:shadow-md transition-[box-shadow,transform] duration-200">
                   <div className="flex items-center gap-2 font-bold text-sm text-stone-900">{f.icon}{f.title}</div>
                   <p className="mt-1.5 text-xs text-stone-600 leading-relaxed">{f.desc}</p>
                 </div>
@@ -83,7 +80,7 @@ export function MovilidadSection() {
           </div>
           <Reveal delay={120}>
             <div className="mt-5 flex flex-wrap gap-3">
-              <a href={`https://wa.me/${SOCIALS.whatsapp}?text=${encodeURIComponent('Hola Turismo Chilón, deseo información de la movilidad H350 para mi grupo')}`}
+              <a href={`https://wa.me/${SOCIALS.whatsapp}?text=${encodeURIComponent('Hola Turismo Chilón, deseo información de nuestras movilidades para mi grupo')}`}
                 target="_blank" rel="noopener noreferrer"
                 className="btn-3d inline-flex items-center gap-2 rounded-xl bg-andino-700 px-5 py-2.5 text-sm font-bold text-white hover:bg-andino-800">
                 Consultar disponibilidad <ArrowRight size={15} />
@@ -113,9 +110,9 @@ export function ExperienciasSection({ tours }: { tours: Tour[] }) {
         </Reveal>
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {list.map((t) => (
-            <Link key={t.id} to={`/tours/${t.slug}`} className="group rounded-2xl overflow-hidden border border-white/15 bg-white/5 hover:bg-white/10 hover:-translate-y-1 transition-all">
+            <Link key={t.id} to={`/tours/${t.slug}`} className="group rounded-2xl overflow-hidden border border-white/15 bg-white/5 hover:bg-white/10 mouse:hover:-translate-y-1 transition-[background-color,transform] duration-200">
               {t.image_url
-                ? <img src={t.image_url} alt={t.title} loading="lazy" className="h-36 w-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                ? <img src={t.image_url} alt={t.title} loading="lazy" className="h-36 w-full object-cover mouse:group-hover:scale-105 transition-transform duration-300" />
                 : <div className="grid h-36 place-items-center text-4xl bg-andino-950">🏔️</div>}
               <div className="p-4">
                 <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-amber-300">
@@ -132,7 +129,6 @@ export function ExperienciasSection({ tours }: { tours: Tour[] }) {
 }
 
 export function ContactoSection({ tours }: { tours: Tour[] }) {
-  const { user } = useAuth();
   const [nombre, setNombre] = useState('');
   const [destino, setDestino] = useState('');
   const [personas, setPersonas] = useState(2);
@@ -157,28 +153,17 @@ export function ContactoSection({ tours }: { tours: Tour[] }) {
     if (!date.value) { setMsg({ ok: false, text: 'Elige la fecha deseada (o pídenos fecha flexible por WhatsApp).' }); return; }
     setBusy(true);
     try {
-      if (user) {
-        await createTourRequest(buildTourRequestPayload({
-          userId: user.id,
-          draft: {
-            // Validado arriba: dest.value es string aquí (dest.error cubre null).
-            requested_destination: dest.value as string,
-            preferred_date: date.value,
-            adults: trav.adults,
-            children: 0,
-            additional_notes: `Contacto web — Nombre: ${name.value}`,
-          },
-          tourId: null,
-        }));
-        setMsg({ ok: true, text: 'Solicitud registrada en tu perfil (pendiente, no es reserva). Te confirmaremos por WhatsApp.' });
-      } else {
-        const text = encodeURIComponent(`Hola Turismo Chilón, soy ${name.value}. Me interesa: ${dest.value}. Personas: ${trav.adults}. Fecha deseada: ${date.value}.`);
-        window.open(`https://wa.me/${SOCIALS.whatsapp}?text=${text}`, '_blank', 'noopener');
-        setMsg({ ok: true, text: 'Te abrimos WhatsApp con tu consulta lista. Inicia sesión para guardarla en tu perfil.' });
-      }
-    } catch (err) {
-      // No se afirma registro: los valores del formulario se conservan.
-      setMsg({ ok: false, text: friendlySaveError(err) });
+      const text = encodeURIComponent([
+        `Hola Turismo Chilón, soy ${name.value}.`,
+        `Me interesa: ${dest.value}.`,
+        `Personas: ${trav.adults}.`,
+        `Fecha deseada: ${date.value}.`,
+        '¿Me confirman disponibilidad y precio?',
+      ].join('\n'));
+      window.open(`https://wa.me/${SOCIALS.whatsapp}?text=${text}`, '_blank', 'noopener');
+      setMsg({ ok: true, text: 'WhatsApp se abrió con tu consulta lista. La solicitud no se guarda en la web.' });
+    } catch {
+      setMsg({ ok: false, text: 'No se pudo abrir WhatsApp. Copia tus datos y contáctanos directamente.' });
     } finally {
       setBusy(false);
     }
@@ -190,9 +175,8 @@ export function ContactoSection({ tours }: { tours: Tour[] }) {
         <span className="text-xs font-bold uppercase tracking-wider text-andino-700">Contacto y reservas</span>
         <h2 id="contacto-title" className="mt-1 text-2xl sm:text-3xl font-extrabold text-stone-900 tracking-tight">Solicita información</h2>
         <p className="mt-2 text-sm text-stone-600 leading-relaxed">
-          Sin pagos por adelantado ni reservas simuladas: si inicias sesión se guarda en{' '}
-          <Link to="/perfil" className="font-bold text-andino-700 underline">tus solicitudes</Link>; si no,
-          preparamos tu mensaje de WhatsApp. Integración lista para el backend existente.
+          Sin pagos por adelantado ni reservas simuladas: preparamos tu mensaje y te derivamos
+          directamente al WhatsApp de atención. La solicitud no se guarda en la web.
         </p>
         <div className="mt-4 space-y-2 text-sm text-stone-600">
           <p className="flex items-center gap-2"><CalendarDays size={15} className="text-andino-600" /> Respuesta por WhatsApp en horario de oficina</p>
@@ -200,35 +184,35 @@ export function ContactoSection({ tours }: { tours: Tour[] }) {
         </div>
       </Reveal>
       <Reveal delay={100}>
-        <form onSubmit={submit} className="rounded-3xl border border-stone-200 bg-white p-6 shadow-xl grid gap-3" noValidate>
-          <label className="grid gap-1 text-sm">
+        <form onSubmit={submit} aria-label="Formulario de solicitud de información" className="card-base p-6 shadow-xl grid gap-3" noValidate>
+          <label htmlFor="contacto-nombre" className="grid gap-1 text-sm">
             <span className="font-bold text-stone-800">Nombre</span>
-            <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Tu nombre completo" autoComplete="name"
-              className="rounded-xl border border-stone-300 px-3 py-2.5 text-sm focus:border-andino-500 focus:ring-2 focus:ring-andino-500/20 focus:outline-none" />
+            <input id="contacto-nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Tu nombre completo" autoComplete="name" required
+              className="input-field" />
           </label>
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="grid gap-1 text-sm">
+            <label htmlFor="contacto-destino" className="grid gap-1 text-sm">
               <span className="font-bold text-stone-800">Destino de interés</span>
-              <select value={destino} onChange={(e) => setDestino(e.target.value)}
-                className="rounded-xl border border-stone-300 px-3 py-2.5 text-sm bg-white focus:border-andino-500 focus:ring-2 focus:ring-andino-500/20 focus:outline-none">
+              <select id="contacto-destino" value={destino} onChange={(e) => setDestino(e.target.value)} required
+                className="input-field bg-white">
                 <option value="">Seleccionar…</option>
                 {destinos.map((d) => <option key={d} value={d}>{d}</option>)}
               </select>
             </label>
-            <label className="grid gap-1 text-sm">
+            <label htmlFor="contacto-personas" className="grid gap-1 text-sm">
               <span className="font-bold text-stone-800">N.º personas</span>
-              <input type="number" min={1} max={50} value={personas} onChange={(e) => setPersonas(Number(e.target.value))}
-                className="rounded-xl border border-stone-300 px-3 py-2.5 text-sm focus:border-andino-500 focus:ring-2 focus:ring-andino-500/20 focus:outline-none" />
+              <input id="contacto-personas" type="number" min={1} max={50} value={personas} onChange={(e) => setPersonas(Number(e.target.value))} required
+                className="input-field" />
             </label>
           </div>
-          <label className="grid gap-1 text-sm">
+          <label htmlFor="contacto-fecha" className="grid gap-1 text-sm">
             <span className="font-bold text-stone-800">Fecha deseada</span>
-            <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)}
-              className="rounded-xl border border-stone-300 px-3 py-2.5 text-sm focus:border-andino-500 focus:ring-2 focus:ring-andino-500/20 focus:outline-none" />
+            <input id="contacto-fecha" type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} required
+              className="input-field" />
           </label>
-          {msg && <p role={msg.ok ? 'status' : 'alert'} className={`text-xs font-semibold rounded-xl px-3 py-2 ${msg.ok ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg.text}</p>}
-          <button disabled={busy} className="btn-3d mt-1 inline-flex items-center justify-center gap-2 rounded-xl bg-andino-700 px-5 py-3 text-sm font-bold text-white hover:bg-andino-800 disabled:opacity-50">
-            <Send size={15} /> {busy ? 'Enviando…' : user ? 'Enviar solicitud' : 'Consultar por WhatsApp'}
+          {msg && <p role={msg.ok ? 'status' : 'alert'} className={`text-xs font-semibold rounded-xl px-3 py-2 ${msg.ok ? 'alert-success' : 'alert-error'}`}>{msg.text}</p>}
+          <button disabled={busy} aria-busy={busy} className="btn-primary mt-1 w-full py-3 disabled:opacity-50">
+            <Send size={15} aria-hidden /> {busy ? 'Abriendo WhatsApp…' : 'Consultar por WhatsApp'}
           </button>
         </form>
       </Reveal>

@@ -38,7 +38,7 @@ export function Profile() {
 
           <button
             onClick={signInWithGoogle}
-            className="btn-3d mt-6 w-full rounded-xl bg-andino-700 py-3 font-bold text-white shadow-md hover:bg-andino-800 transition-all text-sm"
+            className="btn-3d mt-6 w-full rounded-xl bg-andino-700 py-3 font-bold text-white shadow-md hover:bg-andino-800 text-sm"
           >
             Continuar con Google
           </button>

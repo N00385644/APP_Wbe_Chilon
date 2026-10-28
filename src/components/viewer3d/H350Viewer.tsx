@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { Pause, Play, ZoomIn, ZoomOut } from 'lucide-react';
 
 const MODEL_URL = '/models/hyundai-h350-solati.glb';
 const HDRI_URL = '/hdri/studio_country_hall_1k.hdr'; // Poly Haven CC0 1K, 1.6MB
@@ -85,9 +86,11 @@ export function H350Viewer() {
       setFailed(true);
       return;
     }
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isMobile ? 1.5 : 1.75));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFShadowMap;
+    // Sombras suaves: el contacto de las ruedas con el asfalto pesa menos que
+    // un borde duro (PCFSoft vs PCF, coste bajo en esta escena pequeña).
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.15;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -97,7 +100,7 @@ export function H350Viewer() {
     renderer.domElement.style.touchAction = 'pan-y';
     renderer.domElement.tabIndex = 0;
     renderer.domElement.setAttribute('role', 'img');
-    renderer.domElement.setAttribute('aria-label', 'Modelo 3D interactivo de la Hyundai H350 Solati 2019 de Turismo Chilón. Usa flechas para girar.');
+    renderer.domElement.setAttribute('aria-label', 'Modelo 3D interactivo de una unidad de Turismo Chilón. Usa flechas para girar.');
     mount.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
@@ -181,19 +184,23 @@ export function H350Viewer() {
     ring.position.y = 0.01;
     scene.add(ring);
 
-    // Partículas de polvo andino: 350 puntos, desactivadas en móvil/reduced-motion.
+    // Partículas de polvo andino: 180 puntos tenues, desactivadas en móvil/reduced-motion.
+    // Van detrás del modelo (no lo ensucian): solo ambiente, sin tapar la H350.
     let particles: THREE.Points | null = null;
     if (!reduced && !isMobile) {
-      const N = 350;
+      const N = 180;
       const pos = new Float32Array(N * 3);
       for (let i = 0; i < N; i++) {
-        pos[i * 3] = (Math.random() - 0.5) * 16;
-        pos[i * 3 + 1] = Math.random() * 5 + 0.3;
-        pos[i * 3 + 2] = (Math.random() - 0.5) * 16;
+        const angle = Math.random() * Math.PI * 2;
+        // Anillo alrededor del modelo (radio 5–8): nunca encima de la van.
+        const r = 5 + Math.random() * 3;
+        pos[i * 3] = Math.cos(angle) * r;
+        pos[i * 3 + 1] = Math.random() * 4.5 + 0.5;
+        pos[i * 3 + 2] = Math.sin(angle) * r;
       }
       const pg = new THREE.BufferGeometry();
       pg.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-      particles = new THREE.Points(pg, new THREE.PointsMaterial({ color: 0xfcd34d, size: 0.035, transparent: true, opacity: 0.45, depthWrite: false }));
+      particles = new THREE.Points(pg, new THREE.PointsMaterial({ color: 0xfcd34d, size: 0.03, transparent: true, opacity: 0.3, depthWrite: false }));
       scene.add(particles);
     }
 
@@ -204,16 +211,34 @@ export function H350Viewer() {
     let radiusBase = 10.2, radiusT = 10.2, radius = 14.5;
     let dragging = false, lastX = 0, lastY = 0, idleT = 0;
     let model: THREE.Group | null = null;
+    let sphereRadius = 0; // radio de encaje del GLB (se fija al cargar)
+    let userZoomed = false; // true si el usuario ajustó zoom manual (no pisar en resize)
     let baseY = 0; // altura de apoyo calibrada al cargar el GLB
     const GROUND_CLEARANCE = 0.03; // holgura para que las ruedas nunca toquen bajo y=0
     let entranceT = 0;
     let visible = true;
     const spinRef = { on: !reduced };
     let viewAnim: { t: number; dur: number; fromT: number; toT: number; fromP: number; toP: number } | null = null;
+    // Encuadre automático: manda la ALTURA (el modelo siempre llena el marco).
+    // En marcos angostos (móvil o PC estrechado) NO se aleja la cámara: se
+    // permite un leve recorte lateral para que el modelo no se miniaturice.
+    const fitRadiusForAspect = (aspect: number) => {
+      if (!sphereRadius) return radiusBase;
+      const t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+      const distV = sphereRadius / Math.max(0.2, t);
+      const narrowKeep = THREE.MathUtils.clamp(aspect / 1.1, 0.8, 1);
+      return Math.min(13, Math.max(5.5, distV * 1.05 * narrowKeep));
+    };
+    const refitToAspect = () => {
+      if (!sphereRadius || userZoomed) return;
+      radiusBase = fitRadiusForAspect(camera.aspect || 1);
+      radiusT = radiusBase;
+      if (entranceT >= 1) radius = radiusBase;
+    };
     apiRef.current = {
-      go: (v) => { viewAnim = { t: 0, dur: 0.9, fromT: thetaT, toT: v.theta, fromP: phiT, toP: v.phi }; if (v.radius) radiusT = v.radius; else radiusT = radiusBase; idleT = 0; },
+      go: (v) => { viewAnim = { t: 0, dur: 0.9, fromT: thetaT, toT: v.theta, fromP: phiT, toP: v.phi }; if (v.radius) { radiusT = v.radius; userZoomed = true; } else { userZoomed = false; radiusT = radiusBase; } idleT = 0; },
       setSpin: (b) => { spinRef.on = reduced ? false : b; },
-      zoom: (d) => { radiusT = Math.min(15, Math.max(6.5, radiusT + d)); idleT = 0; },
+      zoom: (d) => { userZoomed = true; radiusT = Math.min(13, Math.max(5.5, radiusT + d)); idleT = 0; },
     };
 
     const placeCamera = (r: number, lift = 0) => {
@@ -253,22 +278,37 @@ export function H350Viewer() {
     const onTouchMove = (e: TouchEvent) => {
       if (e.touches.length !== 2) return;
       const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-      if (pinchD > 0) radiusT = Math.min(15, Math.max(6.5, radiusT - (d - pinchD) * 0.02));
+      if (pinchD > 0) { userZoomed = true; radiusT = Math.min(13, Math.max(5.5, radiusT - (d - pinchD) * 0.02)); }
       pinchD = d;
     };
     const onTouchEnd = () => { pinchD = 0; };
+    // Doble clic / doble toque: salida de emergencia hacia la vista 3/4 inicial
+    // (si el usuario se pierde girando). Retargetea el muelle, sin reinicio duro.
+    const onDblClick = () => {
+      viewAnim = null;
+      thetaT = VIEWS[0].theta;
+      phiT = VIEWS[0].phi;
+      userZoomed = false;
+      radiusT = radiusBase;
+      idleT = 0;
+      setView(0);
+    };
     renderer.domElement.addEventListener('pointerdown', onDown);
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
     renderer.domElement.addEventListener('keydown', onKey);
     renderer.domElement.addEventListener('touchmove', onTouchMove, { passive: true });
     renderer.domElement.addEventListener('touchend', onTouchEnd);
+    renderer.domElement.addEventListener('dblclick', onDblClick);
 
     const resize = () => {
       const w = mount.clientWidth || 800, h = mount.clientHeight || 480;
       renderer.setSize(w, h, false);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
+      // Re-encuadra al tamaño real: si el usuario no hizo zoom manual,
+      // la cámara se acerca/aleja sola para que el modelo llene el marco.
+      refitToAspect();
     };
     resize();
     const ro = new ResizeObserver(resize);
@@ -295,14 +335,14 @@ export function H350Viewer() {
         const fit = 6.4 / Math.max(1, maxDim);
         const s = Math.min(1.6, Math.max(0.6, fit));
         model.scale.setScalar(s);
-        // Re-encuadra por esfera de encaje: distancia = radio / tan(fov/2) con
-        // margen 1.25 para que el encuadre sea ajustado sin cortar.
+        // Re-encuadra por esfera de encaje según el aspecto actual del marco:
+        // cabe en vertical y en horizontal, ajustado sin cortar ni miniatura.
         const reBox = new THREE.Box3().setFromObject(model);
         const sphere = reBox.getBoundingSphere(new THREE.Sphere());
+        sphereRadius = sphere.radius;
         baseY = model.position.y;
         target.copy(sphere.center);
-        const fitDist = (sphere.radius / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))) * 1.08;
-        radiusBase = Math.min(13, Math.max(7, fitDist));
+        radiusBase = fitRadiusForAspect(mount.clientWidth / Math.max(1, mount.clientHeight));
         radiusT = radiusBase;
         if (entranceT >= 1) radius = radiusBase;
         scene.add(model);
@@ -363,7 +403,7 @@ export function H350Viewer() {
       }
       if (particles) {
         particles.rotation.y = elapsed * 0.02;
-        (particles.material as THREE.PointsMaterial).opacity = 0.35 + Math.sin(elapsed * 0.8) * 0.1;
+        (particles.material as THREE.PointsMaterial).opacity = 0.24 + Math.sin(elapsed * 0.8) * 0.08;
       }
       ring.rotation.z = elapsed * 0.05;
       placeCamera(radius, scrollLift);
@@ -383,6 +423,7 @@ export function H350Viewer() {
       renderer.domElement.removeEventListener('keydown', onKey);
       renderer.domElement.removeEventListener('touchmove', onTouchMove);
       renderer.domElement.removeEventListener('touchend', onTouchEnd);
+      renderer.domElement.removeEventListener('dblclick', onDblClick);
       scene.traverse((o) => {
         const mesh = o as THREE.Mesh;
         if (mesh.geometry) mesh.geometry.dispose();
@@ -406,7 +447,7 @@ export function H350Viewer() {
       <figure className="overflow-hidden rounded-3xl border border-white/20 shadow-2xl">
         <img src={PHOTO_FALLBACK} alt="Miniván blanca de Turismo Chilón en ruta por Cajamarca" className="h-[400px] w-full object-cover sm:h-[480px]" loading="lazy" />
         <figcaption className="bg-andino-950 px-4 py-2 text-center text-xs text-stone-300">
-          Hyundai H350 Solati 2019 — Servicio Turístico · Turismo Chilón S.R.L. (vista fotográfica, WebGL no disponible)
+          Nuestra movilidad en servicio · Turismo Chilón S.R.L. (vista fotográfica, WebGL no disponible)
         </figcaption>
       </figure>
     );
@@ -417,39 +458,40 @@ export function H350Viewer() {
       <div className="flex flex-wrap items-center gap-3 px-4 pt-4 sm:px-6">
         <img src="/logo-chilon.png" alt="Logo Chilón Tours" className="logo-badge h-11 w-11 rounded-2xl bg-white object-contain p-1 shadow-md" loading="lazy" />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-extrabold text-white sm:text-base">Hyundai H350 Solati 2019 · en 3D</p>
-          <p className="truncate text-[11px] text-stone-300 sm:text-xs">Arrastra para girar · pellizca o usa +/− para acercar · teclado con ← →</p>
+          <p className="text-sm font-extrabold text-white sm:text-base">Nuestra movilidad en 3D</p>
+          <p className="truncate text-[11px] text-stone-300 sm:text-xs">Arrastra para girar · pellizca o usa +/− para acercar · doble clic restablece · teclado ← →</p>
         </div>
         <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Vistas del modelo 3D">
           {VIEWS.map((v, i) => (
-            <button key={v.label} onClick={() => pick(i)} aria-pressed={view === i}
-              className={`rounded-lg px-2.5 py-1.5 text-[11px] font-bold transition-all duration-160 active:scale-95 sm:text-xs ${view === i ? 'bg-amber-400 text-stone-900 shadow' : 'border border-white/20 bg-white/10 text-stone-200 hover:bg-white/20'}`}>
+            <button key={v.label} onClick={() => pick(i)} aria-pressed={view === i} aria-label={`Ver modelo desde ${v.label}`}
+              className={`min-h-10 rounded-lg px-2.5 py-1.5 text-[11px] font-bold transition-[background-color,color,border-color,transform,box-shadow] duration-160 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300 sm:text-xs ${view === i ? 'bg-amber-400 text-stone-900 shadow' : 'border border-white/20 bg-white/10 text-stone-200 hover:bg-white/20'}`}>
               {v.label}
             </button>
           ))}
-          <button onClick={toggleSpin} aria-pressed={spin} title={spin ? 'Pausar giro' : 'Reanudar giro'}
-            className="rounded-lg border border-white/20 bg-white/10 px-2.5 py-1.5 text-[11px] font-bold text-stone-200 transition-all duration-160 hover:bg-white/20 active:scale-95 sm:text-xs">
-            {spin ? '❚❚ Giro' : '▶ Giro'}
+          <button onClick={toggleSpin} aria-pressed={spin} title={spin ? 'Pausar giro' : 'Reanudar giro'} aria-label={spin ? 'Pausar giro automático' : 'Reanudar giro automático'}
+            className="inline-flex min-h-10 items-center gap-1 rounded-lg border border-white/20 bg-white/10 px-2.5 py-1.5 text-[11px] font-bold text-stone-200 transition-[background-color,color,border-color,transform] duration-160 hover:bg-white/20 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300 sm:text-xs">
+            {spin ? <Pause size={12} aria-hidden /> : <Play size={12} aria-hidden />}
+            <span>Giro</span>
           </button>
-          <button onClick={() => apiRef.current?.zoom(-0.8)} aria-label="Acercar"
-            className="rounded-lg border border-white/20 bg-white/10 px-2.5 py-1.5 text-[11px] font-bold text-stone-200 hover:bg-white/20 active:scale-95">+</button>
-          <button onClick={() => apiRef.current?.zoom(0.8)} aria-label="Alejar"
-            className="rounded-lg border border-white/20 bg-white/10 px-2.5 py-1.5 text-[11px] font-bold text-stone-200 hover:bg-white/20 active:scale-95">−</button>
+          <button onClick={() => apiRef.current?.zoom(-0.8)} aria-label="Acercar modelo 3D"
+            className="grid min-h-10 min-w-10 place-items-center rounded-lg border border-white/20 bg-white/10 text-stone-200 transition-[background-color,color,border-color,transform] duration-160 hover:bg-white/20 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300"><ZoomIn size={14} aria-hidden /></button>
+          <button onClick={() => apiRef.current?.zoom(0.8)} aria-label="Alejar modelo 3D"
+            className="grid min-h-10 min-w-10 place-items-center rounded-lg border border-white/20 bg-white/10 text-stone-200 transition-[background-color,color,border-color,transform] duration-160 hover:bg-white/20 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300"><ZoomOut size={14} aria-hidden /></button>
         </div>
       </div>
 
-      <div className="relative px-2 sm:px-4">
-        <div ref={mountRef} className="van-canvas h-[360px] w-full cursor-grab active:cursor-grabbing sm:h-[440px] lg:h-[500px]"
+      <div className="relative min-w-0 px-2 sm:px-4">
+        <div ref={mountRef} className="van-canvas h-[74vw] max-h-[560px] min-h-[380px] w-full cursor-grab active:cursor-grabbing sm:h-[460px] sm:min-h-[460px] lg:h-[540px] lg:min-h-[540px]"
           style={{ opacity: ready ? 1 : 0 }} aria-hidden={!ready} />
         {!ready && (
           <div className="absolute inset-0 grid place-items-center" role="status" aria-live="polite">
             <div className="w-64 rounded-2xl border border-white/15 bg-white/5 px-5 py-4 backdrop-blur">
               <div className="flex items-center gap-3">
                 <span className="h-5 w-5 animate-spin rounded-full border-2 border-amber-300 border-t-transparent" />
-                <span className="text-xs font-semibold text-stone-200">Cargando H350 Solati 3D… {progress > 0 ? `${progress}%` : ''}</span>
+                <span className="text-xs font-semibold text-stone-200">Cargando modelo 3D… {progress > 0 ? `${progress}%` : ''}</span>
               </div>
               <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
-                <div className="h-full rounded-full bg-gradient-to-r from-amber-400 to-emerald-400 transition-all duration-300" style={{ width: `${Math.max(8, progress)}%` }} />
+                <div className="h-full rounded-full bg-gradient-to-r from-amber-400 to-emerald-400 transition-[width] duration-300" style={{ width: `${Math.max(8, progress)}%` }} />
               </div>
               <p className="mt-2 text-[11px] text-stone-400">Modelo GLB real · 607 KB · materiales PBR originales</p>
             </div>
@@ -461,7 +503,7 @@ export function H350Viewer() {
         {['GPS y SOAT vigente', 'Climatizadas', 'Choferes homologados'].map((b, i) => (
           <span key={b} className="stagger-item rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-semibold text-stone-100" style={{ animationDelay: `${40 + i * 50}ms` }}>{b}</span>
         ))}
-        <span className="ml-auto hidden text-[11px] text-stone-400 sm:inline">Hyundai H350 Solati · modelo 2019 · geometría y proporciones originales</span>
+        <span className="ml-auto hidden text-[11px] text-stone-400 sm:inline">Modelo 2019 · geometría y proporciones originales</span>
       </div>
     </div>
   );

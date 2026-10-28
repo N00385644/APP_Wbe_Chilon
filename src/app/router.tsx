@@ -10,12 +10,10 @@ import { CalendarPage } from './pages/Calendar';
 import { Admin } from './pages/Admin';
 import { Privacy } from './pages/Privacy';
 
-const BRAND = 'Cajamarca Tours';
-
 export function Router() {
   return (
     <BrowserRouter>
-      <Header brand={BRAND} />
+      <Header />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/tours" element={<Tours />} />

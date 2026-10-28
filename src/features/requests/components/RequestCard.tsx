@@ -6,6 +6,14 @@ import { cancelMyRequest } from '../../../services/requests';
 
 export function RequestCard({ r, onChanged }: { r: TourRequest; onChanged: () => void }) {
   const editable = r.status === 'pending';
+  const statusCls =
+    r.status === 'confirmed'
+      ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+      : r.status === 'cancelled'
+        ? 'bg-stone-100 border-stone-300 text-stone-600'
+        : r.status === 'pending'
+          ? 'bg-amber-50 border-amber-200 text-amber-800'
+          : 'bg-andino-50 border-andino-200 text-andino-800';
 
   const cancel = async () => {
     if (!confirm('¿Cancelar esta solicitud pendiente?')) return;
@@ -18,10 +26,10 @@ export function RequestCard({ r, onChanged }: { r: TourRequest; onChanged: () =>
   };
 
   return (
-    <div className="rounded-2xl border border-stone-200 bg-white p-5 text-sm shadow-sm hover:shadow-md transition-shadow">
+    <div className="card-base p-5 text-sm shadow-sm hover:shadow-md hover:border-stone-300 transition-shadow">
       <div className="flex flex-wrap items-center gap-2">
-        <b className="text-base text-stone-900">{r.requested_destination ?? '(sin destino)'}</b>
-        <span className="rounded-full bg-andino-50 border border-andino-200 text-andino-800 font-semibold px-2.5 py-0.5 text-xs">
+        <b className="text-base text-stone-900 text-balance">{r.requested_destination ?? '(sin destino)'}</b>
+        <span className={`rounded-full border font-semibold px-2.5 py-0.5 text-xs ${statusCls}`}>
           {REQUEST_STATUS_LABEL[r.status] ?? r.status}
         </span>
         <span className="ml-auto text-xs text-stone-400">{formatFechaHoraLima(r.created_at)}</span>
@@ -49,7 +57,8 @@ export function RequestCard({ r, onChanged }: { r: TourRequest; onChanged: () =>
       {editable && (
         <button
           onClick={cancel}
-          className="mt-3 rounded-lg border border-red-200 px-3 py-1 text-xs font-semibold text-red-700 hover:bg-red-50 transition-colors"
+          aria-label={`Cancelar solicitud a ${r.requested_destination ?? 'destino'}`}
+          className="mt-3 min-h-10 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 hover:border-red-300 focus-visible:outline-2 focus-visible:outline-red-600 disabled:opacity-50 transition-colors"
         >
           Cancelar solicitud
         </button>

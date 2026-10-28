@@ -1,3 +1,8 @@
+/* Animate.css (MIT, https://animate.style) — utilidades animate__* para el header.
+   Se importa completo para no limitar las animaciones disponibles; la guardia
+   global de prefers-reduced-motion (más abajo) las desactiva cuando toca. */
+@import 'animate.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -12,6 +17,12 @@
 
 html {
   scroll-behavior: smooth;
+}
+
+/* Guardia tablet/móvil: ningún desborde accidental genera scroll horizontal
+   (clip no rompe el header sticky, a diferencia de hidden). */
+body {
+  overflow-x: clip;
 }
 
 body { 
@@ -149,7 +160,15 @@ body {
   outline-offset: 2px;
 }
 
-/* Stagger entrance — decorative, never blocks interaction */
+/* Stagger entrance — decorative, never blocks interaction.
+   Las keyframes viven aquí (no en tailwind.config): Tailwind 3 solo emite
+   @keyframes cuando algún `animate-*` los usa, y al eliminar el último uso
+   el CSS plano quedaría huérfano (opacity 0 permanente). */
+@keyframes fadeUp {
+  0% { opacity: 0; transform: translateY(24px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
 .stagger-item {
   opacity: 0;
   transform: translateY(8px);
@@ -171,6 +190,32 @@ body {
   }
 }
 
+/* Piezas del mosaico bento (catálogo de tours):
+   · entrada con escala sutil y fill "backwards": al terminar devuelve el
+     control del transform a las clases de hover (lift/press);
+   · imagen con zoom lento de galería, también al enfocar con teclado. */
+@keyframes bentoUp {
+  0% { opacity: 0; transform: translateY(18px) scale(0.97); }
+}
+
+.bento-item {
+  animation: bentoUp 340ms var(--ease-out) backwards;
+}
+
+.bento-img {
+  transition: transform 450ms var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .group:hover .bento-img {
+    transform: scale(1.06);
+  }
+}
+
+.group:focus-visible .bento-img {
+  transform: scale(1.06);
+}
+
 /* Parallax layers: driven by rAF — no CSS transition (must stay interruptible) */
 .parallax-layer {
   will-change: transform;
@@ -182,7 +227,18 @@ body {
   transform-style: preserve-3d;
 }
 
-/* Float decor runs on INNER node only — outer node owns parallax transform */
+/* Float decor runs on INNER node only — outer node owns parallax transform.
+   Keyframes locales por la misma razón que fadeUp (autocontención del CSS). */
+@keyframes float {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-12px) rotate(1.5deg); }
+}
+
+@keyframes floatReverse {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(10px) rotate(-1.5deg); }
+}
+
 .float-decor {
   animation: float 7s ease-in-out infinite;
   will-change: transform;
@@ -254,18 +310,421 @@ a:active .logo-badge {
   mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
 }
 
-/* Indicador de scroll */
-.scroll-hint .scroll-dot {
-  animation: scrollDot 1.8s ease-in-out infinite;
+/* Calendario: punto "vivo" en los días con tour próximo (el pasado queda quieto).
+   Late solo en transform+opacity (no repinta layout) y la guardia global de
+   reduced-motion lo neutraliza. Sustituye al emoji 🟢, que cambia de glifo según
+   el sistema operativo. Inspiración: búsqueda en HTMLHub (2026-10-18);
+   implementación propia, sin código copiado. */
+@keyframes calDotPulse {
+  0%, 100% { opacity: 0.5; transform: scale(0.85); }
+  50% { opacity: 1; transform: scale(1.15); }
 }
-@keyframes scrollDot {
-  0% { transform: translateY(0); opacity: 1; }
-  60% { transform: translateY(12px); opacity: 0; }
-  100% { transform: translateY(0); opacity: 0; }
+
+.cal-dot {
+  animation: calDotPulse 2400ms var(--ease-in-out) infinite;
 }
 
 .duration-160 {
   transition-duration: 160ms;
+}
+
+/* ====================================================
+   FASE 6 — Sistema de diseño unificado (solo visual)
+   Reutiliza paleta andina/tierra/oro + Inter/Outfit.
+   Sin dependencias nuevas. Estados: hover/focus/
+   loading/disabled/error/vacío coherentes.
+   ==================================================== */
+@layer components {
+  .btn-primary {
+    @apply btn-3d inline-flex items-center justify-center gap-2 rounded-xl bg-andino-700 px-5 py-2.5 text-sm font-bold text-white hover:bg-andino-800 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none;
+  }
+  .btn-whatsapp {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-[#00a884] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#009678] disabled:opacity-50 disabled:cursor-not-allowed transition-colors;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-700 hover:bg-stone-50 hover:border-stone-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors;
+  }
+  .input-field {
+    @apply w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-stone-800 placeholder-stone-500 caret-andino-600 shadow-sm transition-colors hover:border-stone-400 focus:border-andino-500 focus:outline-none focus:ring-2 focus:ring-andino-500/25 disabled:bg-stone-100 disabled:cursor-not-allowed;
+  }
+  .card-base {
+    @apply rounded-2xl border border-stone-200/90 bg-white shadow-sm;
+  }
+  .badge-destino {
+    @apply inline-flex items-center gap-1 rounded-full bg-white/90 backdrop-blur-md px-2.5 py-1 text-xs font-bold text-stone-800 shadow-md;
+  }
+  .skeleton {
+    @apply animate-pulse rounded-2xl border border-stone-200 bg-stone-100;
+  }
+  .alert-error {
+    @apply rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-800;
+  }
+  .alert-success {
+    @apply rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800;
+  }
+  .empty-state {
+    @apply rounded-2xl border border-dashed border-stone-300 bg-white/70 p-8 sm:p-12 text-center;
+  }
+}
+
+/* ====================================================
+   Botón "agua" (estilo Oleada) — paleta de la empresa.
+   Inspirado en «Botones de agua» (2026-10-18); reimplementación
+   propia, sin código de terceros ni fuentes externas.
+   El agua no sube como un nivel: inunda la pastilla desde el punto
+   por el que entra el cursor (un círculo que se expande), con un
+   brillo que sigue al ratón, burbujas que suben, onda al pulsar y
+   gotas que salpican fuera del botón.
+   `--mx` / `--my` los escribe GlowButton.tsx.
+   Estructura: .glow-wrap > .glow-face > (.glow-tide + .glow-shine + texto)
+   ==================================================== */
+.glow-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.glow-face {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  width: 100%;
+  min-height: 3rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.5rem;
+  overflow: hidden;
+  border: 1px solid var(--glass-line, rgba(255, 255, 255, 0.75));
+  border-radius: 9999px;
+  color: var(--ink, #0d2a28);
+  font-weight: 700;
+  font-size: 0.875rem;
+  background-color: var(--glass, rgba(255, 255, 255, 0.3));
+  backdrop-filter: blur(8px) saturate(1.4);
+  -webkit-backdrop-filter: blur(8px) saturate(1.4);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.85),
+    inset 0 -10px 18px rgba(255, 255, 255, 0.1),
+    0 14px 30px -16px var(--glow, rgba(0, 0, 0, 0.25));
+  transition:
+    transform 550ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 400ms var(--ease-out);
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (min-width: 640px) {
+  .glow-face { font-size: 1rem; }
+}
+
+/* La marea: nace donde entra el cursor y se expande hasta inundar la
+   pastilla (el desbordamiento lo recorta el propio .glow-face). */
+.glow-tide {
+  position: absolute;
+  z-index: 1;
+  left: var(--mx, 50%);
+  top: var(--my, 50%);
+  width: 24px;
+  height: 24px;
+  margin: -12px 0 0 -12px;
+  border-radius: 50%;
+  /* --spot es la luz de la marea (color precalculado por variante para no
+     depender de color-mix: si el agua no pintara, el texto blanco no se leería). */
+  background: radial-gradient(
+    circle at 32% 30%,
+    var(--spot, rgba(255, 255, 255, 0.35)),
+    var(--w2) 70%
+  );
+  transform: scale(0);
+  transition: transform 850ms cubic-bezier(0.3, 0.75, 0.25, 1);
+  pointer-events: none;
+}
+
+.glow-face.is-on .glow-tide { transform: scale(34); }
+
+/* Brillo que persigue al ratón (solo con el vaso lleno). */
+.glow-shine {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 300ms var(--ease-out);
+  mix-blend-mode: soft-light;
+  background: radial-gradient(
+    130px circle at var(--mx, 50%) var(--my, 50%),
+    rgba(255, 255, 255, 0.95),
+    rgba(255, 255, 255, 0) 62%
+  );
+}
+
+.glow-face.is-on .glow-shine { opacity: 1; }
+
+/* Reflejo del vidrio en la parte alta, por encima del agua y del brillo. */
+.glow-face::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0) 42%);
+}
+
+/* Contenido (icono + texto) siempre por encima de todo. */
+.glow-label {
+  position: relative;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+  transition:
+    color 350ms var(--ease-out) 80ms,
+    text-shadow 350ms var(--ease-out);
+}
+
+.glow-face.is-on .glow-label {
+  color: #fff;
+  text-shadow: 0 1px 10px rgba(0, 30, 60, 0.4);
+}
+
+/* Burbujas, ondas y gotas: las crea GlowButton.tsx al vuelo y se
+   autodestruyen en cuanto termina su animación. */
+.glow-bub,
+.glow-rip {
+  position: absolute;
+  z-index: 2;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.glow-bub {
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.1) 60%);
+  animation: glowBubUp 1.4s ease-out forwards;
+}
+
+.glow-rip {
+  width: 18px;
+  height: 18px;
+  margin: -9px 0 0 -9px;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  animation: glowRip 950ms ease-out forwards;
+}
+
+/* Las gotas viven en el <body> (position: fixed) para salpicar fuera
+   del botón, que recorta todo lo demás. */
+.glow-drop {
+  position: fixed;
+  z-index: 60;
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  box-shadow: inset -1px -1px 2px rgba(255, 255, 255, 0.7);
+  pointer-events: none;
+  animation: glowSplash 750ms cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+}
+
+@keyframes glowBubUp {
+  from { opacity: 0.95; }
+  to { opacity: 0; transform: translate(var(--dx, 0px), -80px) scale(1.25); }
+}
+
+@keyframes glowRip {
+  to { transform: scale(16); opacity: 0; }
+}
+
+@keyframes glowSplash {
+  to { transform: translate(var(--dx, 0px), var(--dy, 0px)) scale(0.15); opacity: 0; }
+}
+
+/* Con el ratón encima el botón se eleva; al pulsar se aplasta (jelly). */
+.glow-face.is-on {
+  transform: translateY(-4px);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.9),
+    0 26px 46px -14px var(--glow);
+}
+
+.glow-face.is-press { transform: translateY(0) scale(0.94, 0.9); }
+
+.glow-face:focus-visible {
+  outline: 2px solid var(--w2);
+  outline-offset: 3px;
+}
+
+/* Variantes de color (paleta de la empresa): --spot es la luz de la marea
+   (donde entra el cursor), --w2 el cuerpo, --glass el vidrio en reposo y
+   --ink la tinta del texto. */
+.glow-amarillo {
+  --spot: #db8e18;                    /* mezcla de oro-400 con ámbar-700 */
+  --w2: #b45309;                      /* ámbar-700 */
+  --glow: rgba(217, 119, 6, 0.4);
+  --glass: rgba(253, 230, 138, 0.8);  /* vidrio dorado */
+  --ink: #422006;
+}
+
+.glow-verde {
+  --spot: #1f9f74;                    /* mezcla de esmeralda-400 con esmeralda-800 */
+  --w2: #065f46;                      /* esmeralda-800 */
+  --glow: rgba(5, 95, 70, 0.4);
+  --glass: rgba(167, 243, 208, 0.8);  /* vidrio esmeralda */
+  --ink: #052e22;
+}
+
+/* Sin movimiento: la marea entra de golpe y no hay gotas ni burbujas. */
+@media (prefers-reduced-motion: reduce) {
+  .glow-tide { transition-duration: 1ms; }
+  .glow-bub,
+  .glow-rip,
+  .glow-drop { display: none; }
+}
+
+/* ====================================================
+   Buscador con logo arrastrable (ver SearchBar.tsx).
+   Inspirado en «Chilón Tours · Buscador con logo interactivo»;
+   reimplementación propia. El logo se arrastra (ratón, táctil o
+   flechas), el botón «Buscar» se enciende al acercarlo y sueltan
+   chispas al enviar. `--x`, `--r` y `--p` los escribe el componente.
+   ==================================================== */
+.search-logo {
+  cursor: grab;
+  /* pan-y: deja pasar el scroll vertical en móvil y nos entrega el arrastre
+     horizontal, que es el que mueve el logo. */
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+  transform: translateX(var(--x, 0px)) rotate(var(--r, 0deg));
+  transform-origin: 50% 90%;
+}
+
+.search-logo:active { cursor: grabbing; }
+
+.search-logo img {
+  display: block;
+  width: 100%;
+  pointer-events: none;
+  filter: drop-shadow(0 14px 22px rgba(41, 37, 36, 0.22));
+}
+
+.search-logo:focus-visible {
+  outline: 2px solid #2583eb;
+  outline-offset: 4px;
+  border-radius: 16px;
+}
+
+.search-cta {
+  transform: scale(calc(1 + var(--p, 0) * 0.07));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    0 8px 18px -6px rgba(217, 119, 6, 0.55),
+    0 0 calc(var(--p, 0) * 40px) calc(var(--p, 0) * 8px) rgba(255, 200, 70, calc(var(--p, 0) * 0.7));
+  transition:
+    transform 160ms var(--ease-out),
+    box-shadow 160ms var(--ease-out),
+    filter 160ms var(--ease-out);
+}
+
+/* ====================================================
+   Micro-interacciones de entrada (React monta/desmonta).
+   @starting-style anima la primera aparición sin estado
+   extra; si el navegador no lo soporta, aparece directo.
+   ==================================================== */
+.enter-pop {
+  transition: opacity 220ms var(--ease-out), transform 220ms var(--ease-out);
+  @starting-style {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+}
+
+.enter-drop {
+  transition: opacity 160ms var(--ease-out), transform 160ms var(--ease-out);
+  @starting-style {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+.enter-sheet {
+  transition: opacity 220ms var(--ease-out), transform 240ms var(--ease-out);
+  @starting-style {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+}
+
+.fade-enter {
+  transition: opacity 200ms var(--ease-out);
+  @starting-style {
+    opacity: 0;
+  }
+}
+
+/* Botón flotante del asistente: press feedback + lift solo con puntero fino */
+.fab {
+  transition: transform 160ms var(--ease-out), background-color 160ms ease, box-shadow 160ms var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .fab:hover {
+    transform: scale(1.06);
+    box-shadow: 0 14px 30px -10px rgba(32, 59, 39, 0.5);
+  }
+}
+.fab:active {
+  transform: scale(0.94);
+  transition-duration: 100ms;
+}
+
+/* Acordeón: la fila crece/decrece con grid-template-rows (interrumpible, sin
+   medir alturas por JS). El cuerpo aparece con un fade corto al abrir y se
+   oculta al instante al cerrar (asimetría: rápido al responder al usuario). */
+.disclosure {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 300ms var(--ease-out);
+}
+.disclosure[data-open='true'] {
+  grid-template-rows: 1fr;
+}
+.disclosure > * {
+  overflow: hidden;
+  min-height: 0;
+}
+.disclosure .disclosure-body {
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out);
+}
+.disclosure[data-open='true'] .disclosure-body {
+  opacity: 1;
+  transform: none;
+  transition-delay: 60ms;
+}
+
+/* Superficies del navegador desde la paleta (scrollbar sobria, no gris del SO) */
+html {
+  scrollbar-color: #d6d3d1 transparent;
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #d6d3d1;
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: #b8b2ad;
+}
+
+/* Foco visible global coherente (teclado): oro en oscuro, andino en claro */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid #488a53;
+  outline-offset: 2px;
+  border-radius: 0.5rem;
 }
 
 /* Reduced motion */

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BarChart3, Search } from 'lucide-react';
+import { BarChart3, ExternalLink, Receipt, Search } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import type { Faq, Tour, TourImage, TourRequest } from '../../../lib/types';
 import { REQUEST_STATUS_LABEL } from '../../../lib/types';
@@ -8,13 +8,19 @@ import { formatFechaHoraLima } from '../../../lib/format';
 const STATUSES = ['pending', 'in_review', 'contacted', 'confirmed', 'cancelled'];
 
 export function AdminPanel() {
-  const [tab, setTab] = useState<'requests' | 'tours' | 'faqs' | 'stats'>('requests');
+  const [tab, setTab] = useState<'requests' | 'tours' | 'faqs' | 'stats' | 'billing'>('requests');
   return (
     <div>
-      <div className="flex flex-wrap gap-2">
-        {([['requests', 'Solicitudes'], ['tours', 'Tours'], ['faqs', 'Preguntas frecuentes'], ['stats', 'Estadísticas']] as const).map(([k, label]) => (
-          <button key={k} onClick={() => setTab(k)}
-            className={`rounded-lg px-4 py-2 text-sm font-semibold ${tab === k ? 'bg-andino-700 text-white' : 'bg-white border border-stone-200 hover:bg-stone-50'}`}>
+      <div role="tablist" aria-label="Secciones del panel administrativo" className="flex flex-wrap gap-2">
+        {([
+          ['requests', 'Solicitudes'],
+          ['tours', 'Tours'],
+          ['faqs', 'Preguntas frecuentes'],
+          ['stats', 'Estadísticas'],
+          ['billing', 'Facturación'],
+        ] as const).map(([k, label]) => (
+          <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
+            className={`rounded-lg px-4 py-2 text-sm font-semibold min-h-11 transition-colors focus-visible:outline-2 focus-visible:outline-andino-600 ${tab === k ? 'bg-andino-700 text-white shadow-sm' : 'bg-white border border-stone-200 hover:bg-stone-50 hover:border-stone-300'}`}>
             {label}
           </button>
         ))}
@@ -24,8 +30,50 @@ export function AdminPanel() {
         {tab === 'tours' && <ToursAdmin />}
         {tab === 'faqs' && <FaqsAdmin />}
         {tab === 'stats' && <StatsAdmin />}
+        {tab === 'billing' && <BillingAdmin />}
       </div>
     </div>
+  );
+}
+
+function BillingAdmin() {
+  const billingUrl = (import.meta.env.VITE_FACTURADOR_APP_URL as string | undefined)?.trim()
+    || 'http://localhost:3000';
+
+  return (
+    <section className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm">
+      <div className="flex flex-col gap-3 border-b border-stone-200 bg-stone-50/80 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-andino-100 text-andino-800">
+            <Receipt size={18} aria-hidden />
+          </span>
+          <div>
+            <h2 className="font-bold text-stone-900">Facturación electrónica</h2>
+            <p className="mt-0.5 max-w-2xl text-xs leading-5 text-stone-600">
+              Panel independiente para emitir comprobantes y consultar documentos SUNAT.
+              Inicia sesión con tus credenciales del facturador.
+            </p>
+          </div>
+        </div>
+        <a
+          href={billingUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-stone-300 bg-white px-3 py-2 text-xs font-bold text-stone-700 transition-colors hover:border-andino-400 hover:bg-andino-50 hover:text-andino-800 focus-visible:outline-2 focus-visible:outline-andino-600"
+        >
+          Abrir en nueva pestaña
+          <ExternalLink size={14} aria-hidden />
+        </a>
+      </div>
+      <div className="bg-stone-100 p-2 sm:p-3">
+        <iframe
+          title="Panel de facturación electrónica"
+          src={`${billingUrl.replace(/\/$/, '')}/panel`}
+          className="h-[min(78vh,900px)] w-full rounded-xl border border-stone-200 bg-white shadow-inner"
+          referrerPolicy="strict-origin-when-cross-origin"
+        />
+      </div>
+    </section>
   );
 }
 
@@ -79,12 +127,13 @@ function RequestsAdmin() {
   };
 
   return (
-    <div className="rounded-2xl border border-stone-200 bg-white p-4">
+    <div className="card-base p-4">
       <div className="flex flex-col sm:flex-row gap-2">
-        <label className="flex flex-1 items-center gap-2 rounded-xl border border-stone-300 px-3">
-          <Search size={15} className="text-stone-400" />
+        <label className="flex flex-1 items-center gap-2 rounded-xl border border-stone-300 bg-white px-3 focus-within:border-andino-500 focus-within:ring-2 focus-within:ring-andino-500/20">
+          <Search size={15} className="text-stone-400" aria-hidden />
+          <span className="sr-only">Buscar solicitudes</span>
           <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && load()}
-            placeholder="Buscar por destino, teléfono o notas…" className="w-full py-2 text-sm outline-none" />
+            placeholder="Buscar por destino, teléfono o notas…" className="w-full py-2.5 text-sm outline-none bg-transparent" />
         </label>
         <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(0); }} className="rounded-xl border border-stone-300 px-3 py-2 text-sm">
           <option value="">Todos los estados</option>
@@ -134,7 +183,7 @@ function RequestsAdmin() {
                   </label>
                   <label className="text-xs text-stone-600 sm:col-span-2">
                     Asiento(s) confirmados / asignados {r.requested_seats && <span className="text-stone-400 font-normal">(el cliente solicitó: {r.requested_seats})</span>}
-                    <input value={schedOf(r).confirmed_seats} placeholder="Ej. 03, 04 (Hyundai H350: asientos del 01 al 15)"
+                    <input value={schedOf(r).confirmed_seats} placeholder="Ej. 03, 04 (asientos del 01 al 15)"
                       onChange={(e) => setSched({ ...sched, [r.id]: { ...schedOf(r), confirmed_seats: e.target.value } })}
                       className="mt-1 w-full rounded-lg border border-stone-300 px-2 py-1 text-sm font-semibold text-emerald-950" />
                   </label>

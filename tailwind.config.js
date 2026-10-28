@@ -24,6 +24,19 @@ export default {
         sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
         display: ['Outfit', 'Inter', 'system-ui', 'sans-serif']
       },
+      // Emil: las curvas integradas son demasiado débiles; se unifican con las
+      // variables de index.css para que cada transition-* use la curva con punch.
+      transitionTimingFunction: {
+        DEFAULT: 'var(--ease-out)',
+        out: 'var(--ease-out)',
+        'in-out': 'var(--ease-in-out)',
+      },
+      // Duraciones usadas en el sistema (fuera de la escala por defecto:
+      // sin esto, `duration-160`/`duration-220` no generaban ninguna regla).
+      transitionDuration: {
+        160: '160ms',
+        220: '220ms',
+      },
       boxShadow: {
         'glow': '0 0 25px -5px rgba(72, 138, 83, 0.45)',
         'glow-lg': '0 0 45px -10px rgba(72, 138, 83, 0.55)',
@@ -69,5 +82,11 @@ export default {
       }
     }
   },
-  plugins: []
+  plugins: [
+    // Variante `mouse:` — hover solo en dispositivos con puntero fino.
+    // En pantallas táctiles el hover se dispara al tocar (falsos positivos).
+    ({ addVariant }) => {
+      addVariant('mouse', '@media (hover: hover) and (pointer: fine)');
+    },
+  ]
 };

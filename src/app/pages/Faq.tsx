@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { FaqList } from '../../features/faqs/components/FaqList';
 import { BackButton } from '../../components/shared/BackButton';
+import { SearchBar } from '../../components/shared/SearchBar';
 import { useFaqs } from '../../lib/hooks';
 
 export function FaqPage() {
@@ -20,15 +21,21 @@ export function FaqPage() {
           Información sobre medios de pago, reservas, clima en Cajamarca y cancelaciones.
         </p>
 
-        <input
+        <SearchBar
+          id="buscar-faq"
+          className="mt-4"
           value={q}
-          onChange={(e) => setQ(e.target.value)}
+          onChange={setQ}
+          label="Buscar preguntas frecuentes por tema"
           placeholder="Buscar por tema: pagos, niños, Cumbemayo, cancelaciones…"
-          className="mt-4 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-sm text-stone-800 shadow-sm focus:border-andino-500 focus:outline-none focus:ring-2 focus:ring-andino-500/20"
+          withLogo
+          resultsId="lista-faq"
         />
       </div>
 
-      <FaqList faqs={faqs} filter={q} />
+      <div id="lista-faq" className="scroll-mt-24">
+        <FaqList faqs={faqs} filter={q} />
+      </div>
     </main>
   );
 }

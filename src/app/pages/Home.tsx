@@ -3,9 +3,9 @@
 import { Link } from 'react-router-dom';
 import { Youtube, Sparkles, Compass, ArrowRight } from 'lucide-react';
 import { Hero } from '../../components/layout/Layout';
-import { TourCard } from '../../features/tours/components/TourCard';
+import { ToursBento } from '../../features/tours/components/ToursBento';
 import { FaqList } from '../../features/faqs/components/FaqList';
-import { DestinosSection, MovilidadSection, ExperienciasSection, ContactoSection } from '../../components/PremiumSections';
+import { MovilidadSection, ContactoSection } from '../../components/PremiumSections';
 import { Reveal } from '../../components/shared/Reveal';
 import { useFaqs, useTours } from '../../lib/hooks';
 import { SOCIALS } from '../../lib/site';
@@ -19,42 +19,42 @@ export function Home() {
       <Hero />
 
       <main className="mx-auto max-w-6xl px-4 py-8">
-        <DestinosSection tours={tours} />
+        {/* Única rejilla de destacados: evita el solape Destinos(0-3) + Destacados(0-6) + Experiencias(3-6).
+            Movilidad conserva la foto real de la flota; el resto de secciones útiles se mantienen. */}
         <MovilidadSection />
-        <ExperienciasSection tours={tours} />
 
         {/* SECCIÓN 1: Tours Destacados */}
-        <section className="mt-6 sm:mt-10">
+        <section aria-labelledby="destacados-title" className="mt-6 sm:mt-10">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 border-b border-stone-200/80 pb-4">
             <div>
               <div className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-andino-700 mb-1">
                 <Sparkles size={13} className="text-amber-500" /> Circuitos Populares
               </div>
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-stone-900 tracking-tight">
+              <h2 id="destacados-title" className="text-2xl sm:text-3xl font-extrabold text-stone-900 tracking-tight text-balance">
                 Tours destacados en Cajamarca
               </h2>
+              <p className="mt-1 text-sm text-stone-500">Selección publicada por la agencia: fotos reales y consulta directa.</p>
             </div>
             <Link
               to="/tours"
-              className="inline-flex items-center gap-1 text-sm font-bold text-andino-700 hover:text-andino-800 hover:translate-x-1 transition-all"
+              className="inline-flex items-center gap-1 text-sm font-bold text-andino-700 hover:text-andino-800 mouse:hover:translate-x-1 transition-[color,transform] duration-160"
             >
               <span>Ver todos los circuitos</span>
               <ArrowRight size={16} />
             </Link>
           </div>
 
-          <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {tours.slice(0, 6).map((t, i) => (
-              <TourCard key={t.id} tour={t} index={i} />
-            ))}
-            {tours.length === 0 && (
-              <div className="col-span-full rounded-2xl border border-dashed border-stone-300 p-12 text-center bg-white/60">
-                <p className="text-sm text-stone-500">
-                  Aún no hay tours publicados en la base de datos. El administrador puede activarlos desde el panel.
-                </p>
-              </div>
-            )}
-          </div>
+          {tours.length > 0 ? (
+            <ToursBento tours={tours.slice(0, 6)} className="mt-6" />
+          ) : (
+            <div role="status" className="empty-state mt-6 bg-white/60">
+              <p className="text-3xl" aria-hidden>🏔️</p>
+              <p className="mt-2 text-sm font-semibold text-stone-700">Aún no hay tours publicados</p>
+              <p className="mt-1 text-sm text-stone-500">
+                El administrador puede activarlos desde el panel. Mientras tanto, consúltanos por WhatsApp.
+              </p>
+            </div>
+          )}
         </section>
 
         {/* SECCIÓN 2: ¿Cómo reservar? & FAQ Destacadas */}
@@ -155,7 +155,7 @@ export function Home() {
                   href={SOCIALS.youtubeVideo}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="btn-3d inline-flex items-center gap-2 rounded-xl bg-red-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-red-700 shadow-md transition-all"
+                  className="btn-3d inline-flex items-center gap-2 rounded-xl bg-red-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-red-700 shadow-md"
                 >
                   <Youtube size={18} /> Ver en YouTube
                 </a>
@@ -163,7 +163,7 @@ export function Home() {
                   href={SOCIALS.instagram}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 rounded-xl border border-stone-200 bg-stone-50 px-4 py-2.5 text-sm font-semibold text-stone-700 hover:bg-stone-100 transition-all"
+                  className="inline-flex items-center gap-2 rounded-xl border border-stone-200 bg-stone-50 px-4 py-2.5 text-sm font-semibold text-stone-700 hover:bg-stone-100 transition-colors duration-200"
                 >
                   Instagram
                 </a>
