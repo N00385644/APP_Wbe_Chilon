@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { CalendarDays } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useMyRequests, useMySchedule } from '../../lib/hooks';
-import { formatHoraEs, formatFechaCortaEs } from '../../lib/calendar';
+import { countdownLabel, daysUntil, formatHoraEs, formatFechaCortaEs } from '../../lib/calendar';
 import { BackButton } from '../../components/shared/BackButton';
 import { RequestCard } from '../../features/requests/components/RequestCard';
 
@@ -132,32 +132,47 @@ export function Profile() {
       </div>
 
       {/* Resumen de próximos tours confirmados */}
-      {schedule.length > 0 && (
-        <div className="mt-10">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-xl font-extrabold text-stone-900 tracking-tight">Tus próximos tours</h2>
-            <Link to="/calendario" className="inline-flex items-center gap-1.5 rounded-xl border border-andino-300 bg-andino-50 px-3 py-1.5 text-xs font-bold text-andino-800 hover:bg-andino-100 transition-colors">
-              <CalendarDays size={14} /> Ver mi calendario
-            </Link>
-          </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            {schedule.filter((r) => r.confirmed_date).slice(0, 2).map((r) => (
-              <Link key={r.id} to="/calendario"
-                className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 text-sm shadow-sm hover:shadow-md transition-shadow">
-                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-emerald-600 text-white font-extrabold text-sm">
-                  {r.confirmed_date!.split('-')[2]}
-                </span>
-                <span>
-                  <b className="text-stone-900">{r.tours?.title ?? r.requested_destination ?? '(sin destino)'}</b>
-                  <span className="block text-xs text-stone-600">
-                    {formatFechaCortaEs(r.confirmed_date)} · {formatHoraEs(r.departure_time)} · {r.meeting_point ?? r.tours?.meeting_point ?? 'Punto por confirmar'}
-                  </span>
-                </span>
+      {schedule.length > 0 && (() => {
+        const upcoming = schedule
+          .filter((r) => r.confirmed_date && (daysUntil(r.confirmed_date) ?? 0) >= 0)
+          .slice(0, 2);
+        return (
+          <div className="mt-10">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-xl font-extrabold tracking-tight text-stone-900">Tus próximos tours</h2>
+              <Link to="/calendario" className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-andino-300 bg-andino-50 px-3 py-1.5 text-xs font-bold text-andino-800 transition-colors hover:bg-andino-100">
+                <CalendarDays size={14} aria-hidden /> Ver mi calendario
               </Link>
-            ))}
+            </div>
+            {upcoming.length > 0 ? (
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                {upcoming.map((r) => (
+                  <Link key={r.id} to="/calendario"
+                    className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 text-sm shadow-sm transition-shadow hover:shadow-md">
+                    <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-emerald-700 text-sm font-extrabold text-white">
+                      {r.confirmed_date!.split('-')[2]}
+                    </span>
+                    <span className="min-w-0">
+                      <b className="block truncate text-stone-900">{r.tours?.title ?? r.requested_destination ?? '(sin destino)'}</b>
+                      <span className="mt-0.5 block text-xs text-stone-600">
+                        {formatFechaCortaEs(r.confirmed_date)} · {r.departure_time ? formatHoraEs(r.departure_time) : 'Hora por WhatsApp'} · {r.meeting_point ?? r.tours?.meeting_point ?? 'Punto por confirmar'}
+                      </span>
+                      <span className="mt-1 inline-block rounded-full bg-emerald-700 px-2 py-0.5 text-[11px] font-extrabold text-white">
+                        {countdownLabel(r.confirmed_date)}
+                      </span>
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-3 rounded-2xl border border-dashed border-stone-300 bg-white p-4 text-sm text-stone-600">
+                No tienes viajes próximos. Revisa tus viajes pasados en{' '}
+                <Link to="/calendario" className="font-bold text-andino-700 underline">tu calendario</Link>.
+              </p>
+            )}
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       <div className="mt-10">
         <h2 className="text-xl font-extrabold text-stone-900 tracking-tight">Mis Solicitudes de Viaje</h2>
