@@ -11,23 +11,36 @@
    No renombres ficheros ya aplicados en producción sin reconciliación previa.
 5. Verifica que existan: profiles, tours, faqs, tour_requests, conversations, messages, unanswered_questions, con RLS activado.
 6. No desplegar funciones de IA: el asistente es local (ver docs/AI_KEYS.md — retiro).
-7. Crea el primer admin solo desde SQL privilegiado (SQL Editor como owner o
-   service_role, sin JWT de usuario):
+7. El usuario debe haber iniciado sesión al menos una vez para que el trigger
+   de registro cree su fila en `public.profiles`. Después, crea el primer
+   administrador desde el **SQL Editor de Supabase**, que ejecuta las consultas
+   en contexto privilegiado y sin el JWT del usuario:
 
 ```sql
-update public.profiles set is_admin = true where email = 'tu-correo@gmail.com';
+update public.profiles
+set is_admin = true
+where email = 'correo@ejemplo.com';
 ```
 
-   Nunca desde el frontend. El trigger `profiles_is_admin_guard` (migración
-   `0006_harden_profiles.sql`) bloquea que un usuario cambie su propio
-   `is_admin` por UPDATE ordinario, y bloquea que un admin se quite el rol a
-   sí mismo por accidente.
-
-   Cambios de rol posteriores (solo otro admin o soporte privilegiado):
+   Comprueba que el cambio se aplicó:
 
 ```sql
--- Otorgar admin a otro usuario (ejecutado por un admin existente o soporte):
-update public.profiles set is_admin = true where email = 'nuevo-admin@gmail.com';
--- Revocar admin a otro usuario (nunca a uno mismo por UPDATE ordinario):
-update public.profiles set is_admin = false where email = 'ex-admin@gmail.com';
+select id, email, is_admin
+from public.profiles
+where email = 'correo@ejemplo.com';
 ```
+
+   Para quitar el rol a otro usuario:
+
+```sql
+update public.profiles
+set is_admin = false
+where email = 'correo@ejemplo.com';
+```
+
+   Nunca hagas estos cambios desde el frontend. El trigger
+   `profiles_is_admin_guard` de `0006_harden_profiles.sql` impide que un
+   usuario se haga administrador a sí mismo desde la aplicación. Por eso el
+   alta inicial se hace desde el SQL Editor, que corre sin JWT. El mismo
+   trigger permite las operaciones privilegiadas y evita cambios de rol propios
+   mediante un UPDATE ordinario.
