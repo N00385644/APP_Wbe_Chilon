@@ -17,6 +17,7 @@ de solo lectura antes de desplegar.
 | `0006_harden_profiles.sql` (Fase 1) | Trigger `profiles_is_admin_guard` + función `prevent_is_admin_self_change()` | 0001 |
 | `0007_check_request_tour.sql` (Fase 1) | Trigger `tour_requests_tour_published_check`: `tour_id` solo a tours publicados (solo valida al cambiar el vínculo; NULL = destino libre) | 0001 |
 | `0008_seat_selection.sql` | Columnas `requested_seats`, `confirmed_seats` + función RPC `get_occupied_seats` | 0001, 0003_tour_schedule |
+| `0009_trip_reminders.sql` | Columna `tour_requests.reminder_sent_at` + trigger `tour_requests_reminder_guard` + extensiones `pg_cron`/`pg_net` + job `send-trip-reminders` (lee Vault; ver `docs/RECORDATORIOS.md`) | 0001, 0003_tour_schedule |
 
 Los dos ficheros `0003_*` son independientes entre sí (uno crea tabla nueva,
 el otro altera `tour_requests`). El conflicto es solo de **numeración**:
@@ -34,8 +35,9 @@ queda ambiguo.
 7. `0006_harden_profiles.sql`
 8. `0007_check_request_tour.sql`
 9. `0008_seat_selection.sql`
+10. `0009_trip_reminders.sql`
 
-Futuras migraciones usan `0009_*`, … Nunca reutilizar `0003`.
+Futuras migraciones usan `0010_*`, … Nunca reutilizar `0003`.
 
 ## Comprobaciones de solo lectura (antes de desplegar)
 
@@ -61,6 +63,10 @@ select tgname from pg_trigger where tgname = 'profiles_is_admin_guard';
 
 -- 5b. Guarda de tour publicado existe (0007)
 select tgname from pg_trigger where tgname = 'tour_requests_tour_published_check';
+
+-- 5c. Recordatorios (0009): guarda y job diario
+select tgname from pg_trigger where tgname = 'tour_requests_reminder_guard';
+select jobname, schedule from cron.job where jobname = 'send-trip-reminders';
 
 -- 6. Seeds aplicados
 select slug, is_published from public.tours where slug in
@@ -99,7 +105,7 @@ Principios: comprobar primero en staging; nunca borrar filas de
 
 ## Reglas futuras
 
-- Un número de versión, un fichero. El próximo es `0007_*`.
+- Un número de versión, un fichero. El próximo es `0010_*`.
 - Migraciones idempotentes cuando sea seed (`on conflict do nothing` con
   target explícito) y `if not exists` en DDL.
 - Prohibido reescribir una migración ya aplicada en prod; cualquier corrección
