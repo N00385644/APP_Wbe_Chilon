@@ -1,9 +1,9 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useEffect, useState, lazy, Suspense } from 'react';
+import { useEffect, useState, lazy, Suspense, type ReactNode } from 'react';
 import { 
   LogIn, LogOut, User, ShieldCheck, Menu, X, 
   Instagram, Youtube, Mail, Phone, MapPinned,
-  Compass, CheckCircle2
+  Compass, CheckCircle2, Rotate3d
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { SOCIALS } from '../../lib/site';
@@ -17,6 +17,61 @@ const H350Viewer = lazy(() =>
 );
 
 const LOGO_URL = '/logo-chilon.png';
+
+// Visor 3D (~645KB JS + ~607KB GLB): en escritorio con buena conexión se
+// carga cuando el navegador queda libre; en móvil o con ahorro de datos
+// solo si el cliente pulsa "Ver en 3D".
+function shouldAutoLoad3d(): boolean {
+  if (typeof window === 'undefined') return false;
+  const conn = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
+  if (conn?.saveData || /2g/.test(conn?.effectiveType ?? '')) return false;
+  return window.matchMedia('(min-width: 768px)').matches;
+}
+
+function Viewer3dGate() {
+  const [show, setShow] = useState(false);
+
+  useEffect(() => {
+    if (!shouldAutoLoad3d()) return;
+    const w = window as Window & { requestIdleCallback?: (cb: () => void) => number };
+    if (w.requestIdleCallback) {
+      w.requestIdleCallback(() => setShow(true));
+      return;
+    }
+    const id = window.setTimeout(() => setShow(true), 1500);
+    return () => window.clearTimeout(id);
+  }, []);
+
+  const placeholder = (children?: ReactNode) => (
+    <div className="grid h-[400px] place-items-center overflow-hidden rounded-3xl border border-white/20 bg-andino-950/60 sm:h-[480px]">
+      <div className="flex flex-col items-center gap-4 px-4 text-center">
+        <img src={LOGO_URL} alt="" className="h-24 w-24 rounded-3xl bg-white object-contain p-2 opacity-90" />
+        {children}
+      </div>
+    </div>
+  );
+
+  if (!show) {
+    return placeholder(
+      <>
+        <p className="max-w-xs text-sm text-stone-300">Conoce por dentro y por fuera la movilidad en la que viajarás.</p>
+        <button
+          type="button"
+          onClick={() => setShow(true)}
+          className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-white px-5 text-sm font-bold text-andino-900 hover:bg-andino-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+        >
+          <Rotate3d size={18} aria-hidden /> Ver la unidad en 3D
+        </button>
+      </>,
+    );
+  }
+
+  return (
+    <Suspense fallback={placeholder(<p className="animate-pulse text-sm text-stone-300" role="status">Cargando vista 3D…</p>)}>
+      <H350Viewer />
+    </Suspense>
+  );
+}
 
 export function Header() {
   const { user, profile, signInWithGoogle, signOut } = useAuth();
@@ -238,15 +293,7 @@ export function Hero() {
 
         {/* Escena 3D protagonista: modelo real de la unidad */}
         <div className="mt-4 sm:mt-6">
-          <Suspense
-            fallback={
-              <div className="grid h-[400px] place-items-center overflow-hidden rounded-3xl border border-white/20 bg-andino-950/60 sm:h-[480px]" aria-hidden>
-                <img src={LOGO_URL} alt="" className="h-24 w-24 animate-pulse rounded-3xl bg-white object-contain p-2 opacity-90" />
-              </div>
-            }
-          >
-            <H350Viewer />
-          </Suspense>
+          <Viewer3dGate />
         </div>
 
       </div>
