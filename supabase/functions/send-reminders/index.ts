@@ -18,7 +18,7 @@ type Row = {
   departure_notes: string | null;
   confirmed_seats: string | null;
   tours: { title: string | null; meeting_point: string | null } | null;
-  profiles: { email: string | null; full_name: string | null } | null;
+  profiles: { full_name: string | null } | null;
 };
 
 function json(body: unknown, status = 200): Response {
@@ -81,7 +81,8 @@ function buildEmail(row: Row, siteUrl: string) {
   if (row.confirmed_seats) fields.push(['Asientos confirmados', row.confirmed_seats]);
   if (row.departure_notes) fields.push(['Indicaciones', row.departure_notes]);
 
-  const name = row.profiles?.full_name?.trim();
+  // full_name es texto libre del cliente: se recorta para el saludo.
+  const name = row.profiles?.full_name?.trim().slice(0, 80).trim();
   const greeting = name ? `Hola ${name},` : 'Hola,';
   const calendarUrl = siteUrl.replace(/\/+$/, '') + '/calendario';
   const subject = `Recordatorio: ${tour} el ${formatDate(row.confirmed_date)}`;
@@ -142,7 +143,7 @@ Deno.serve(async (req) => {
   const { data, error } = await admin
     .from('tour_requests')
     .select(
-      'id, user_id, requested_destination, confirmed_date, departure_time, meeting_point, departure_notes, confirmed_seats, tours(title, meeting_point), profiles(email, full_name)',
+      'id, user_id, requested_destination, confirmed_date, departure_time, meeting_point, departure_notes, confirmed_seats, tours(title, meeting_point), profiles(full_name)',
     )
     .eq('status', 'confirmed')
     .is('reminder_sent_at', null)
@@ -159,11 +160,10 @@ Deno.serve(async (req) => {
   const details: { id: string; result: string }[] = [];
 
   for (const row of (data ?? []) as unknown as Row[]) {
-    let email = row.profiles?.email ?? null;
-    if (!email) {
-      const { data: u } = await admin.auth.admin.getUserById(row.user_id);
-      email = u?.user?.email ?? null;
-    }
+    // Destinatario: siempre el email verificado de auth.users, nunca
+    // profiles.email (editable por el cliente, AUDIT_FASE6 S-2).
+    const { data: u } = await admin.auth.admin.getUserById(row.user_id);
+    const email = u?.user?.email_confirmed_at ? (u.user.email ?? null) : null;
     if (!email) {
       skipped++;
       details.push({ id: row.id, result: 'skipped: sin email' });

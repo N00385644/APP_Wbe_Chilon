@@ -18,6 +18,7 @@ de solo lectura antes de desplegar.
 | `0007_check_request_tour.sql` (Fase 1) | Trigger `tour_requests_tour_published_check`: `tour_id` solo a tours publicados (solo valida al cambiar el vínculo; NULL = destino libre) | 0001 |
 | `0008_seat_selection.sql` | Columnas `requested_seats`, `confirmed_seats` + función RPC `get_occupied_seats` | 0001, 0003_tour_schedule |
 | `0009_trip_reminders.sql` | Columna `tour_requests.reminder_sent_at` + trigger `tour_requests_reminder_guard` + extensiones `pg_cron`/`pg_net` + job `send-trip-reminders` (lee Vault; ver `docs/RECORDATORIOS.md`) | 0001, 0003_tour_schedule |
+| `0010_harden_request_columns.sql` (AUDIT_FASE6 S-1/S-2/S-3) | Trigger `tour_requests_client_guard` (`guard_request_client_columns()`): el cliente no escribe logística/`confirmed_seats`/`admin_notes`/`reminder_sent_at` y solo cancela; valida `requested_seats` (01-15, sin repetir, nº ≤ `travelers_count`). Trigger `profiles_email_guard` (`prevent_profile_email_change()`). `get_occupied_seats` devuelve vacío sin `p_tour_id`; **sigue ejecutable por `anon`** porque el selector de asientos del asistente (`SeatPicker` → `fetchOccupiedSeats`) funciona sin sesión | 0001, 0003_tour_schedule, 0006, 0008, 0009 |
 
 Los dos ficheros `0003_*` son independientes entre sí (uno crea tabla nueva,
 el otro altera `tour_requests`). El conflicto es solo de **numeración**:
@@ -36,8 +37,9 @@ queda ambiguo.
 8. `0007_check_request_tour.sql`
 9. `0008_seat_selection.sql`
 10. `0009_trip_reminders.sql`
+11. `0010_harden_request_columns.sql`
 
-Futuras migraciones usan `0010_*`, … Nunca reutilizar `0003`.
+Futuras migraciones usan `0011_*`, … Nunca reutilizar `0003`.
 
 ## Comprobaciones de solo lectura (antes de desplegar)
 
@@ -67,6 +69,9 @@ select tgname from pg_trigger where tgname = 'tour_requests_tour_published_check
 -- 5c. Recordatorios (0009): guarda y job diario
 select tgname from pg_trigger where tgname = 'tour_requests_reminder_guard';
 select jobname, schedule from cron.job where jobname = 'send-trip-reminders';
+
+-- 5d. Columnas solo-admin (0010)
+select tgname from pg_trigger where tgname in ('tour_requests_client_guard','profiles_email_guard');
 
 -- 6. Seeds aplicados
 select slug, is_published from public.tours where slug in
@@ -105,7 +110,7 @@ Principios: comprobar primero en staging; nunca borrar filas de
 
 ## Reglas futuras
 
-- Un número de versión, un fichero. El próximo es `0010_*`.
+- Un número de versión, un fichero. El próximo es `0011_*`.
 - Migraciones idempotentes cuando sea seed (`on conflict do nothing` con
   target explícito) y `if not exists` en DDL.
 - Prohibido reescribir una migración ya aplicada en prod; cualquier corrección
