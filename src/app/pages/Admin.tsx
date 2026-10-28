@@ -1,21 +1,59 @@
 // Puerta del panel administrativo (guarda de rol; el contenido vive en features/admin).
 import { Link, Navigate } from 'react-router-dom';
-import { ShieldCheck } from 'lucide-react';
+import { useState } from 'react';
+import { RefreshCw, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { BackButton } from '../../components/shared/BackButton';
 import { AdminPanel } from '../../features/admin/components/AdminPanel';
 
 export function Admin() {
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, profileLoading, profileError, isAdmin, refreshProfile } = useAuth();
+  const [retrying, setRetrying] = useState(false);
 
-  if (loading) return <main className="p-12 text-center text-sm text-stone-500">Verificando credenciales de administrador…</main>;
+  const retry = async () => {
+    setRetrying(true);
+    await refreshProfile();
+    setRetrying(false);
+  };
+
+  // Sesión con perfil aún sin pedir/recibir también cuenta como "verificando".
+  if (loading || profileLoading || (user && !profile && !profileError)) {
+    return <main role="status" className="p-12 text-center text-sm text-stone-500">Verificando permisos…</main>;
+  }
   if (!user) return <Navigate to="/perfil" replace />;
-  if (!profile?.is_admin) {
+  if (!isAdmin) {
+    const retryBtn = (
+      <button
+        type="button"
+        onClick={retry}
+        disabled={retrying}
+        className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-tierra-700 px-4 text-sm font-bold text-white hover:bg-tierra-800 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tierra-700"
+      >
+        <RefreshCw size={16} className={retrying ? 'animate-spin' : undefined} aria-hidden /> {retrying ? 'Reintentando…' : 'Reintentar'}
+      </button>
+    );
     return (
       <main className="mx-auto max-w-xl px-4 py-16 text-center">
-        <h1 className="text-xl font-bold text-stone-900">Acceso Restringido</h1>
-        <p className="mt-2 text-sm text-stone-500">Esta sección es de uso exclusivo para el equipo administrativo de Turismo Chilón S.R.L.</p>
-        <Link to="/" className="mt-4 inline-block font-bold text-andino-700 underline">Volver al inicio</Link>
+        {profileError ? (
+          <>
+            <h1 className="text-xl font-bold text-stone-900">No pudimos verificar tus permisos</h1>
+            <p role="alert" className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">{profileError}</p>
+          </>
+        ) : (
+          <>
+            <h1 className="text-xl font-bold text-stone-900">Acceso restringido</h1>
+            <p className="mt-2 text-sm text-stone-600">
+              Iniciaste sesión como <b className="text-stone-900">{profile?.email ?? user.email}</b>, pero esta cuenta no tiene rol de administrador.
+            </p>
+            <p className="mt-2 text-sm text-stone-500">
+              Un administrador existente puede darte el rol, o puede asignarse con el SQL de <code className="rounded bg-stone-100 px-1">docs/SETUP_SUPABASE.md</code>. Si ya te lo dieron, pulsa «Reintentar».
+            </p>
+          </>
+        )}
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+          {retryBtn}
+          <Link to="/" className="inline-flex min-h-11 items-center px-3 font-bold text-andino-700 underline">Volver al inicio</Link>
+        </div>
       </main>
     );
   }

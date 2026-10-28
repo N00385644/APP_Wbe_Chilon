@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { validateName } from '../schemas/requests';
@@ -10,7 +10,14 @@ export type Profile = {
 
 type AuthState = {
   session: Session | null; user: User | null; profile: Profile | null;
+  /** true solo mientras se resuelve la sesión inicial. */
   loading: boolean; error: string | null;
+  /** true mientras se carga el perfil de una sesión ya conocida. */
+  profileLoading: boolean;
+  /** Error legible si falló la consulta de `profiles`. */
+  profileError: string | null;
+  /** profiles.is_admin === true (solo UI; la seguridad real está en RLS). */
+  isAdmin: boolean;
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<string | null>;
   signUpWithEmail: (email: string, password: string, name: string) => Promise<string | null>;
@@ -27,27 +34,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  // Usuario cuyo perfil está cargado (o en carga): evita repetir la consulta
+  // en INITIAL_SESSION / TOKEN_REFRESHED / USER_UPDATED del mismo usuario.
+  const profileUserId = useRef<string | null>(null);
+
   const loadProfile = async (userId: string) => {
+    profileUserId.current = userId;
+    setProfileLoading(true);
+    setProfileError(null);
     const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single();
-    if (!error) setProfile(data as Profile);
+    if (profileUserId.current !== userId) return; // cambió el usuario mientras tanto
+    if (error) {
+      setProfile(null);
+      setProfileError(error.code === 'PGRST116'
+        ? 'No se encontró tu perfil. Cierra sesión y vuelve a entrar; si persiste, contacta al administrador.'
+        : `No se pudo cargar tu perfil: ${error.message}`);
+    } else {
+      setProfile(data as Profile);
+    }
+    setProfileLoading(false);
+  };
+
+  const clearProfile = () => {
+    profileUserId.current = null;
+    setProfile(null); setProfileError(null); setProfileLoading(false);
   };
 
   const refreshProfile = async () => {
     const { data } = await supabase.auth.getSession();
     if (data.session?.user) await loadProfile(data.session.user.id);
+    else clearProfile();
   };
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data, error }) => {
+    supabase.auth.getSession().then(({ data, error }) => {
       if (error) setError(error.message);
       setSession(data.session);
-      if (data.session?.user) await loadProfile(data.session.user.id);
+      const uid = data.session?.user?.id;
+      if (uid && profileUserId.current !== uid) void loadProfile(uid);
       setLoading(false);
     });
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_ev, sess) => {
+    // supabase-js advierte que llamar a supabase dentro de este callback puede
+    // bloquearse: nada de await aquí, la carga del perfil se difiere.
+    const { data: sub } = supabase.auth.onAuthStateChange((_ev, sess) => {
       setSession(sess);
-      if (sess?.user) await loadProfile(sess.user.id);
-      else setProfile(null);
+      const uid = sess?.user?.id;
+      if (!uid) { clearProfile(); return; }
+      if (profileUserId.current === uid) return;
+      profileUserId.current = uid;
+      setProfileLoading(true);
+      setTimeout(() => { void loadProfile(uid); }, 0);
     });
     return () => sub.subscription.unsubscribe();
   }, []);
@@ -68,7 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    setSession(null); setProfile(null);
+    setSession(null); clearProfile();
   };
 
   // Login alternativo con correo (temporal hasta configurar Google OAuth).
@@ -115,7 +153,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <Ctx.Provider value={{ session, user: session?.user ?? null, profile, loading, error, signInWithGoogle, signInWithEmail, signUpWithEmail, signOut, refreshProfile, updateName }}>
+    <Ctx.Provider value={{ session, user: session?.user ?? null, profile, loading, error, profileLoading, profileError, isAdmin: profile?.is_admin === true, signInWithGoogle, signInWithEmail, signUpWithEmail, signOut, refreshProfile, updateName }}>
       {children}
     </Ctx.Provider>
   );

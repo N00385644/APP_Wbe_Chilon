@@ -74,7 +74,7 @@ function Viewer3dGate() {
 }
 
 export function Header() {
-  const { user, profile, signInWithGoogle, signOut } = useAuth();
+  const { user, profile, isAdmin, signInWithGoogle, signOut } = useAuth();
   const [menu, setMenu] = useState(false);
   const nav = useNavigate();
   const { pathname } = useLocation();
@@ -96,6 +96,13 @@ export function Header() {
         ? 'text-andino-800 bg-andino-50 font-bold ring-1 ring-andino-200'
         : 'text-stone-700 hover:text-andino-700 hover:bg-andino-50/70'
     }`;
+
+  // Acceso al panel: solo para admins (UI; la seguridad real está en RLS).
+  const adminCls = `inline-flex min-h-11 items-center gap-1.5 px-3 rounded-xl font-bold border transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tierra-700 ${
+    isActive('/admin')
+      ? 'bg-tierra-700 border-tierra-700 text-white shadow-sm'
+      : 'bg-tierra-50 border-tierra-300 text-tierra-800 hover:bg-tierra-100'
+  }`;
 
   const links = (
     <>
@@ -145,14 +152,14 @@ export function Header() {
       >
         Mis solicitudes
       </Link>
-      {profile?.is_admin && (
+      {isAdmin && (
         <Link
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-tierra-700 font-bold bg-tierra-50 border border-tierra-200 hover:bg-tierra-100 transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-andino-600"
+          className={adminCls}
           to="/admin"
           aria-current={isActive('/admin') ? 'page' : undefined}
           onClick={() => setMenu(false)}
         >
-          <ShieldCheck size={16} /> Admin
+          <ShieldCheck size={16} aria-hidden /> Panel admin
         </Link>
       )}
     </>
@@ -192,7 +199,17 @@ export function Header() {
             </button>
           ) : (
             <div className="hidden sm:flex items-center gap-2.5">
-              <button 
+              {/* Acceso rápido sm–md (en lg ya está en la navegación principal) */}
+              {isAdmin && (
+                <Link
+                  to="/admin"
+                  className={`${adminCls} text-sm lg:hidden`}
+                  aria-current={isActive('/admin') ? 'page' : undefined}
+                >
+                  <ShieldCheck size={16} aria-hidden /> Panel admin
+                </Link>
+              )}
+              <button
                 onClick={() => nav('/perfil')} 
                 title={profile?.email ?? ''} 
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-stone-200 bg-white/90 text-sm font-medium text-stone-700 hover:border-andino-300 hover:text-andino-800 transition-[color,border-color,box-shadow] duration-200 shadow-sm"
