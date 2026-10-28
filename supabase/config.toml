@@ -1,3 +1,8 @@
 [functions.chat-assistant]
 enabled = false
 enable_invoke = false
+
+# Recordatorios de viaje (migración 0009). La auth es el secreto propio
+# REMINDERS_CRON_SECRET, no un JWT de usuario. Ver docs/RECORDATORIOS.md.
+[functions.send-reminders]
+verify_jwt = false
