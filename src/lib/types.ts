@@ -31,6 +31,8 @@ export type TourRequest = {
   // Asientos del vehículo turístico (solicitados por cliente / confirmados por admin)
   requested_seats: string | null;
   confirmed_seats: string | null;
+  // Recordatorio de viaje enviado por la Edge Function (migración 0009)
+  reminder_sent_at?: string | null;
 };
 
 /** Solicitud confirmada con datos del tour asociado (para el calendario). */
