@@ -1,7 +1,7 @@
 // Perfil: autenticación + nombre + próximos tours + historial de solicitudes.
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CalendarDays } from 'lucide-react';
+import { CalendarDays, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useMyRequests, useMySchedule } from '../../lib/hooks';
 import { countdownLabel, daysUntil, formatHoraEs, formatFechaCortaEs } from '../../lib/calendar';
@@ -9,7 +9,7 @@ import { BackButton } from '../../components/shared/BackButton';
 import { RequestCard } from '../../features/requests/components/RequestCard';
 
 export function Profile() {
-  const { user, profile, signInWithGoogle, signInWithEmail, signUpWithEmail, updateName, error } = useAuth();
+  const { user, profile, isAdmin, signInWithGoogle, signInWithEmail, signUpWithEmail, updateName, error } = useAuth();
   const { requests, reload } = useMyRequests(user?.id);
   const { schedule } = useMySchedule(user?.id);
   const [name, setName] = useState('');
@@ -105,6 +105,22 @@ export function Profile() {
   return (
     <main className="mx-auto max-w-4xl px-4 py-10">
       <BackButton to="/" label="Volver al inicio" className="mb-5" />
+      {isAdmin && (
+        <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-tierra-300 bg-tierra-50 p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-tierra-700 text-white">
+              <ShieldCheck size={22} aria-hidden />
+            </span>
+            <div>
+              <h2 className="text-base font-extrabold text-tierra-900">Eres administrador</h2>
+              <p className="text-xs text-tierra-800">Gestiona solicitudes, tours y la logística confirmada.</p>
+            </div>
+          </div>
+          <Link to="/admin" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-tierra-700 px-4 text-sm font-bold text-white hover:bg-tierra-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tierra-700">
+            <ShieldCheck size={16} aria-hidden /> Ir al panel de gestión
+          </Link>
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-stone-200 pb-6">
         <div>
           <span className="text-xs font-bold uppercase tracking-wider text-andino-700">Panel de Usuario</span>
