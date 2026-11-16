@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { MessageCircle, Send, Plus, X, Menu } from 'lucide-react';
 import { fetchTourCards } from '../../../services/tours';
 import { fetchFaqCards } from '../../../services/faqs';
-import { validateBookingDraft, validatePhoneOptional } from '../../../schemas/requests';
+import { validateBookingDraft, validatePhoneOptional, validatePreferredDate } from '../../../schemas/requests';
 import { searchCatalog } from '../engine/chatSearch';
 import { WaCta } from './WaCta';
 import { DraftCard } from './DraftCard';
@@ -26,6 +26,7 @@ type ChatMsg = {
 const WELCOME = START_TEXT;
 type PendingStep = null | 'dest' | 'date' | 'phone' | 'faq_other';
 type FullTour = MinimalTour & {
+  id: string;
   duration?: string | null; price_from?: number | null; currency?: string | null;
   short_description?: string | null; meeting_point?: string | null; includes?: string | null;
 };
@@ -112,7 +113,7 @@ export function ChatWidget() {
     if (value === 'help') {
       const wa = buildFaqMessage('hablar con un asesor');
       pushAssistant(
-        `Te atiende un asesor por WhatsApp (${WHATSAPP_DISPLAY}). También puedes dejar tu solicitud aquí y la enviamos por ti. ¿Qué prefieres?`,
+        `Te atiende un asesor por WhatsApp (${WHATSAPP_DISPLAY}). También puedes preparar tu solicitud aquí para enviarla por WhatsApp. ¿Qué prefieres?`,
         {
           options: [
             { value: 'booking', label: 'Dejar una solicitud' },
@@ -352,7 +353,12 @@ export function ChatWidget() {
         pushAssistant('No veo una fecha válida. Escríbela como AAAA-MM-DD (ej. 2026-11-20) o elige fecha flexible:', { options: BOOKING_DATE_OPTIONS });
         return true;
       }
-      const nb = { ...booking, preferred_date: m[1], date_is_flexible: false };
+      const checked = validatePreferredDate(m[1]);
+      if (checked.error) {
+        pushAssistant(`${checked.error} Escribe otra fecha o elige fecha flexible:`, { options: BOOKING_DATE_OPTIONS });
+        return true;
+      }
+      const nb = { ...booking, preferred_date: checked.value, date_is_flexible: false };
       setBooking(nb);
       pushAssistant('¿Cuántos viajeros son? (elige un rango)', { options: BOOKING_PAX_OPTIONS });
       setPending(null);
@@ -520,7 +526,7 @@ export function ChatWidget() {
                   )}
                   {m.waText && <WaCta text={m.waText} />}
                   {m.draft && (m.draft.ready_to_confirm || (m.draft.missing?.length ?? 0) > 0 || m.draft.requested_destination) && (
-                    <DraftCard draft={m.draft} onEditSeats={() => setSeatPickerOpen(true)} />
+                    <DraftCard draft={m.draft} onEditSeats={() => { setBooking(m.draft!); setSeatPickerOpen(true); }} />
                   )}
                 </div>
               </div>
@@ -534,6 +540,7 @@ export function ChatWidget() {
               <div className="fade-enter absolute inset-0 z-20 flex items-center justify-center bg-black/60 p-2 overflow-y-auto" onClick={() => setSeatPickerOpen(false)}>
                 <div onClick={(e) => e.stopPropagation()} className="enter-pop w-full max-w-sm my-auto">
                   <SeatPicker
+                    tourId={tours.find((t) => t.slug === booking.tour_slug)?.id}
                     tourTitle={booking.requested_destination}
                     date={booking.preferred_date}
                     maxSeats={Number(booking.adults ?? 1) + Number(booking.children ?? 0)}

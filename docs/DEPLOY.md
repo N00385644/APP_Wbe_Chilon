@@ -1,63 +1,50 @@
-# Publicar Cajamarca Tours
+# Publicar Turismo Chilón gratis
 
-Esta guía explica cómo poner la aplicación en internet con HTTPS y sin pagar por el alojamiento. La opción recomendada es **Vercel Hobby**; **Cloudflare Pages** es una alternativa también gratuita.
+Supabase aloja los datos y las cuentas. Cloudflare Pages aloja los archivos web de `dist/`, con HTTPS y una dirección `pages.dev`. Esta app estática no necesita Pages Functions ni un plan de pago de Workers.
 
-## Antes de empezar
+Vercel Hobby se limita al uso personal no comercial; para esta agencia usamos Cloudflare Pages. Referencias: [Cloudflare Pages](https://developers.cloudflare.com/pages/functions/pricing/), [Vercel Hobby](https://vercel.com/docs/plans/hobby).
 
-Necesitas:
+## Preparar los archivos
 
-- Una cuenta gratuita en [Vercel](https://vercel.com/) o [Cloudflare](https://pages.cloudflare.com/).
-- Un proyecto de Supabase.
-- El código de este repositorio en GitHub.
+Usa Node.js 24. Copia `.env.example` a `.env` y completa `VITE_SUPABASE_URL` y `VITE_SUPABASE_PUBLISHABLE_KEY` con los valores públicos del proyecto Supabase.
 
-Antes de publicar, aplica las migraciones de la base de datos en el orden indicado en [MIGRATIONS.md](MIGRATIONS.md). No cambies ni borres migraciones que ya hayas aplicado.
+`VITE_FACTURADOR_APP_URL` es opcional. Déjala vacía hasta tener la dirección HTTPS pública del facturador independiente. localhost solo funciona en desarrollo.
 
-## Opción recomendada: Vercel Hobby
+```powershell
+npm ci
+npm test
+npm run build
+```
 
-1. Entra en Vercel y pulsa **Add New → Project**.
-2. Conecta GitHub y selecciona este repositorio.
-3. Vercel detectará Vite. Comprueba que el framework sea **Vite** y que la carpeta de salida sea `dist`.
-4. En **Environment Variables**, añade estas dos variables para `Production`:
-   - `VITE_SUPABASE_URL`: la URL de tu proyecto Supabase.
-   - `VITE_SUPABASE_PUBLISHABLE_KEY`: la clave publicable de Supabase.
-5. Pulsa **Deploy**. Cada cambio posterior enviado a la rama conectada volverá a desplegarse automáticamente.
-6. Copia el dominio que Vercel te asignó. Puedes añadir un dominio propio desde **Settings → Domains**.
+El build rechaza configuración incompleta, claves secretas o `service_role` y valores de ejemplo. Las variables `VITE_*` son visibles por los visitantes. Nunca incluyas contraseñas ni claves de Resend o de IA.
 
-Las variables `VITE_*` llegan al navegador. Son públicas: nunca pongas aquí una clave `service_role`, contraseñas ni secretos.
+## Publicar por carga directa
 
-## Alternativa: Cloudflare Pages
+1. En [Cloudflare](https://dash.cloudflare.com/), abre **Workers & Pages → Create application → Continue to Pages → Drag and drop your files**.
+2. Crea el proyecto `turismo-chilon` o el nombre disponible que prefieras.
+3. Carga el contenido de `dist/` en un ZIP cuya raíz contenga `index.html`, `_headers`, `_redirects` y las carpetas de recursos. Nunca subas `.env`, el repositorio completo ni `node_modules`.
+4. Pulsa **Deploy site** y usa el dominio que confirme Cloudflare.
 
-1. Entra en Cloudflare Pages y pulsa **Create a project → Connect to Git**.
-2. Selecciona el repositorio y la rama que quieras publicar.
-3. Usa estos valores de build:
-   - **Build command:** `npm run build`
-   - **Build output directory:** `dist`
-   - **Node.js version:** `20`
-4. En **Settings → Environment variables**, añade `VITE_SUPABASE_URL` y `VITE_SUPABASE_PUBLISHABLE_KEY` con los valores públicos de tu proyecto.
-5. Guarda y pulsa **Save and Deploy**.
+Para actualizar, abre el mismo proyecto → **Create a new deployment**, elige **Production** y carga el nuevo `dist/` compilado. Las variables ya quedan incorporadas al build local: cambiarlas en el panel después de subir el ZIP no cambia esos archivos.
 
-El archivo `public/_redirects` mantiene funcionando las rutas de React al recargar la página. `public/_headers` añade las cabeceras de seguridad y la caché de los archivos estáticos.
+La carga directa no se convierte después en integración Git; para automatizar desde GitHub se crea otro proyecto Pages. [Guía oficial](https://developers.cloudflare.com/pages/get-started/direct-upload/).
 
-## Configurar Supabase
+## Supabase antes de abrir al público
 
-En Supabase abre **Authentication → URL Configuration**:
+- El proyecto debe estar activo. Un proyecto pausado impide cargar tours e iniciar sesión.
+- Compara el esquema real con [MIGRATIONS.md](MIGRATIONS.md). Aplica únicamente lo que falte, incluyendo `0010_harden_request_columns.sql` y `0011_deployment_security.sql`. Los dos `0003_*` históricos tienen la misma versión: no ejecutes un `db push` ciego.
+- En **Authentication → URL Configuration**, establece **Site URL** en el dominio público confirmado y añade `<dominio>/perfil` y `<dominio>/` a **Redirect URLs**. Conserva las URLs locales si sigues desarrollando.
+- Si usas Google, configura el proveedor y callback según [GOOGLE_OAUTH.md](GOOGLE_OAUTH.md).
+- La cuenta administradora debe existir y estar promovida según [SETUP_SUPABASE.md](SETUP_SUPABASE.md).
 
-1. Pon el dominio de producción como **Site URL**, por ejemplo `https://tu-dominio.vercel.app`.
-2. Añade ese dominio a **Redirect URLs**, incluyendo `https://tu-dominio.vercel.app/**`.
-3. Si usarás Google, configura también Google Cloud y el proveedor de Supabase siguiendo [GOOGLE_OAUTH.md](GOOGLE_OAUTH.md).
+Los recordatorios por email son opcionales. Requieren desplegar la Edge Function, un remitente verificado y secretos privados: [RECORDATORIOS.md](RECORDATORIOS.md). No se envían pruebas a clientes reales para comprobar el despliegue.
 
-Comprueba que las migraciones estén aplicadas según [MIGRATIONS.md](MIGRATIONS.md). Los recordatorios por email se documentan en [RECORDATORIOS.md](RECORDATORIOS.md).
+## Verificación
 
-## Evitar la pausa de Supabase Free
+Comprueba HTTPS, carga real de tours/FAQs, una ruta directa como `/tours/cumbemayo` tras recargar, enlaces de WhatsApp, entrada y salida de sesión, y acceso admin con la cuenta correspondiente. Revisa móvil y escritorio.
 
-Supabase puede pausar proyectos gratuitos que permanecen inactivos durante 7 días. Para reducir ese riesgo, entra periódicamente al proyecto y usa la aplicación (por ejemplo, inicia sesión y revisa una página); revisa también el estado del proyecto en el panel de Supabase. La pausa afecta al backend, no al alojamiento de Vercel o Cloudflare, y puede requerir reanudar el proyecto desde el panel.
+`npm test` cubre `src/__tests__`; se excluye el proyecto independiente e ignorado `mcp/brushstroke/`. Las pruebas SQL están en `supabase/tests/deployment_security.sql`: ejecútalas únicamente en local o staging. Revierten sus datos al terminar. Auth, correo y cron requieren comprobaciones propias en staging.
 
-## Comprobación final
+El chat y el formulario envían consultas por WhatsApp; no generan un registro en Supabase. Perfil/calendario muestran solicitudes ya vinculadas a una cuenta. El panel actual permite editarlas y no tiene alta manual de solicitudes.
 
-- [ ] La página principal abre con `https://`.
-- [ ] El registro y el inicio de sesión funcionan.
-- [ ] El botón **Continuar con Google** funciona, si está activado.
-- [ ] `/calendario` muestra las solicitudes confirmadas del usuario.
-- [ ] Se puede enviar una solicitud de tour.
-- [ ] El botón de WhatsApp abre el chat con el número correcto.
-- [ ] No hay claves `service_role` ni otros secretos en las variables `VITE_*`.
+Consulta [AVAILABILITY.md](AVAILABILITY.md) para la comprobación diaria gratuita y las limitaciones de pausa/restauración de Supabase Free.

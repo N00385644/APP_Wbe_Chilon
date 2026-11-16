@@ -2,7 +2,8 @@
 
 - Archivo servido: `public/models/hyundai-h350-solati.glb` (607 KB, 5 meshes, 4 materiales, 1 imagen embebida).
 - Origen: copia de `2019_hyundai_h350_solati.glb` de la raíz para que Vite lo sirva en `/models/`.
-- Visor: `src/components/H350Viewer.tsx` con `GLTFLoader` + entorno PBR.
+- Visor: `src/components/viewer3d/H350Viewer.tsx` con `GLTFLoader` + entorno PBR.
+- La textura está embebida en el GLB. `ImageBitmapLoader` la lee mediante `fetch(blob:...)`: la CSP de producción debe permitir `blob:` tanto en `connect-src` como en `img-src`. Si se permite solo en imágenes, carga la geometría pero el vehículo aparece blanco. Cubierto por `src/__tests__/model-texture.test.ts`.
 - Entorno: HDRI de estudio `public/hdri/studio_country_hall_1k.hdr` (Poly Haven, CC0, 1K, 1.6 MB)
   cargado con `RGBELoader` como `scene.environment` (solo reflejos; el fondo sigue
   siendo el gradiente CSS). Fallback a `RoomEnvironment` si falla la red.
@@ -12,7 +13,7 @@
 - Se conservan UVs, mapas y proporciones originales: no se deforman puertas/ruedas ni se inventan animaciones mecánicas.
 - Mejora PBR (sin texturas externas):
   - `envMapIntensity = 1.15` global; pintura clara → roughness 0.32; vidrios oscuros → roughness ≤ 0.15 + metalness ≥ 0.35; caucho → roughness 0.95.
-  - Luces: Hemisphere 0.5 + key 2.2 con sombras PCFSoft + fill 0.5 + rim 1.0. ToneMapping ACES 1.15.
+  - Luces: Hemisphere 0.5 + key 2.2 con sombras PCF + fill 0.5 + rim 1.0. ToneMapping ACES 1.15.
   - Decisión MCP `3d-assets`: se encontraron HDRIs "Car Showroom Studio" (Poly Haven CC0, BlenderKit Royalty Free) pero pesan GBs en 8K; se aproximan con RoomEnvironment + rig 3-point. Sin descargas, sin créditos adicionales.
 - Encuadre automático: esfera de encaje (`Box3.getBoundingSphere`) con
   `distancia = radio / tan(fov/2) × 1.08`, objetivo en el centro de la esfera.

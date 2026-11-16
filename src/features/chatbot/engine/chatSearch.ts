@@ -27,11 +27,11 @@ function keywords(text: string): string[] {
  * Busca primero en tours publicados y luego en FAQs.
  * Devuelve el primer match por palabra clave (regla histórica del chat).
  */
-export function searchCatalog(
-  tours: TourHit[],
+export function searchCatalog<T extends TourHit>(
+  tours: T[],
   faqs: FaqHit[],
   text: string,
-): { kind: 'tour'; tour: TourHit } | { kind: 'faq'; faq: FaqHit } | { kind: 'none' } {
+): { kind: 'tour'; tour: T } | { kind: 'faq'; faq: FaqHit } | { kind: 'none' } {
   const q = norm(text);
   const tourHit = tours.find((t) =>
     keywords(`${t.title} ${t.destination ?? ''} ${t.short_description ?? ''}`).some((w) => q.includes(w)),

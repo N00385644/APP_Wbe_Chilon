@@ -1,5 +1,5 @@
 // Perfil: autenticación + nombre + próximos tours + historial de solicitudes.
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CalendarDays, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -9,22 +9,31 @@ import { BackButton } from '../../components/shared/BackButton';
 import { RequestCard } from '../../features/requests/components/RequestCard';
 
 export function Profile() {
-  const { user, profile, isAdmin, signInWithGoogle, signInWithEmail, signUpWithEmail, updateName, error } = useAuth();
-  const { requests, reload } = useMyRequests(user?.id);
-  const { schedule } = useMySchedule(user?.id);
+  const { user, profile, isAdmin, loading: authLoading, profileLoading, profileError, refreshProfile, signInWithGoogle, signInWithEmail, signUpWithEmail, updateName, error } = useAuth();
+  const { requests, loading: requestsLoading, error: requestsError, reload } = useMyRequests(user?.id);
+  const { schedule, error: scheduleError, reload: reloadSchedule } = useMySchedule(user?.id);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [mode, setMode] = useState<'in' | 'up'>('in');
   const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  useEffect(() => { setName(profile?.full_name ?? ''); }, [profile?.full_name, user?.id]);
+
+  if (authLoading) return <main role="status" className="p-12 text-center text-sm text-stone-500">Cargando tu sesión…</main>;
 
   if (!user) {
     const submitEmail = async (e: React.FormEvent) => {
       e.preventDefault();
       setBusy(true);
-      if (mode === 'in') await signInWithEmail(email, password);
-      else await signUpWithEmail(email, password, name);
-      setBusy(false);
+      setNotice(null);
+      try {
+        if (mode === 'in') await signInWithEmail(email, password);
+        else if (!await signUpWithEmail(email, password, name)) {
+          setNotice('Revisa tu correo para confirmar la cuenta antes de iniciar sesión.');
+        }
+      } finally { setBusy(false); }
     };
 
     return (
@@ -33,7 +42,7 @@ export function Profile() {
         <div className="glass-panel rounded-3xl p-8 shadow-xl border border-stone-200 text-center">
           <h1 className="text-2xl font-extrabold text-stone-900 tracking-tight">Mis Solicitudes</h1>
           <p className="mt-2 text-xs sm:text-sm text-stone-500 leading-relaxed">
-            Inicia sesión para registrar consultas, ver tu historial de tours y recibir atención personalizada.
+            Inicia sesión para ver las solicitudes vinculadas a tu cuenta y tus viajes confirmados.
           </p>
 
           <button
@@ -50,13 +59,13 @@ export function Profile() {
 
           <div className="flex gap-2 text-sm mb-4">
             <button
-              onClick={() => setMode('in')}
+              onClick={() => { setMode('in'); setNotice(null); }}
               className={`flex-1 py-1.5 rounded-lg font-bold text-xs transition-colors ${mode === 'in' ? 'bg-stone-800 text-white' : 'bg-stone-100 text-stone-600'}`}
             >
               Iniciar sesión
             </button>
             <button
-              onClick={() => setMode('up')}
+              onClick={() => { setMode('up'); setNotice(null); }}
               className={`flex-1 py-1.5 rounded-lg font-bold text-xs transition-colors ${mode === 'up' ? 'bg-stone-800 text-white' : 'bg-stone-100 text-stone-600'}`}
             >
               Crear cuenta
@@ -69,6 +78,8 @@ export function Profile() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Nombre completo"
+                aria-label="Nombre completo"
+                autoComplete="name"
                 required
                 className="rounded-xl border border-stone-300 px-3 py-2 text-sm"
               />
@@ -78,6 +89,8 @@ export function Profile() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="correo@ejemplo.com"
+              aria-label="Correo electrónico"
+              autoComplete="email"
               required
               className="rounded-xl border border-stone-300 px-3 py-2 text-sm"
             />
@@ -86,10 +99,14 @@ export function Profile() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Contraseña (mín. 6 caracteres)"
+              aria-label="Contraseña"
+              autoComplete={mode === 'up' ? 'new-password' : 'current-password'}
+              minLength={mode === 'up' ? 6 : undefined}
               required
               className="rounded-xl border border-stone-300 px-3 py-2 text-sm"
             />
             {error && <p role="alert" className="text-xs text-red-700">{error}</p>}
+            {notice && <p role="status" className="text-xs text-emerald-800">{notice}</p>}
             <button
               disabled={busy}
               className="rounded-xl bg-stone-900 py-2.5 font-bold text-white text-sm hover:bg-black transition-colors disabled:opacity-50 mt-1"
@@ -130,22 +147,33 @@ export function Profile() {
       </div>
 
       <div className="mt-6 rounded-2xl border bg-white p-5 shadow-sm">
-        <label className="block text-xs font-bold uppercase tracking-wider text-stone-500 mb-2">Nombre para mostrar</label>
+        {profileError && <p role="alert" className="alert-error mb-3 p-3 text-sm">No pudimos cargar tu perfil. <button onClick={() => void refreshProfile()} className="font-bold underline">Reintentar</button></p>}
+        <label htmlFor="profile-name" className="block text-xs font-bold uppercase tracking-wider text-stone-500 mb-2">Nombre para mostrar</label>
         <div className="flex gap-2">
           <input
-            defaultValue={profile?.full_name ?? ''}
+            id="profile-name"
+            value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Tu nombre completo"
             className="flex-1 rounded-xl border border-stone-300 px-3 py-2 text-sm"
           />
           <button
-            onClick={() => updateName(name || profile?.full_name || '')}
+            disabled={busy || profileLoading}
+            onClick={async () => {
+              setBusy(true); setNotice(null);
+              try { if (!await updateName(name)) setNotice('Nombre actualizado.'); }
+              finally { setBusy(false); }
+            }}
             className="btn-3d rounded-xl bg-andino-700 px-4 py-2 font-bold text-white text-sm hover:bg-andino-800"
           >
             Guardar
           </button>
         </div>
+        {error && <p role="alert" className="mt-2 text-xs text-red-700">{error}</p>}
+        {notice && <p role="status" className="mt-2 text-xs text-emerald-800">{notice}</p>}
       </div>
+
+      {scheduleError && <p role="alert" className="alert-error mt-6 p-3 text-sm">No pudimos cargar tus próximos viajes. <button onClick={() => void reloadSchedule()} className="font-bold underline">Reintentar</button></p>}
 
       {/* Resumen de próximos tours confirmados */}
       {schedule.length > 0 && (() => {
@@ -193,10 +221,12 @@ export function Profile() {
       <div className="mt-10">
         <h2 className="text-xl font-extrabold text-stone-900 tracking-tight">Mis Solicitudes de Viaje</h2>
         <div className="mt-4 space-y-3">
+          {requestsLoading && <p role="status" className="text-sm text-stone-500">Cargando solicitudes…</p>}
+          {requestsError && <p role="alert" className="alert-error p-3 text-sm">No pudimos cargar tus solicitudes. <button onClick={() => void reload()} className="font-bold underline">Reintentar</button></p>}
           {requests.map((r) => (
             <RequestCard key={r.id} r={r} onChanged={reload} />
           ))}
-          {requests.length === 0 && (
+          {!requestsLoading && !requestsError && requests.length === 0 && (
             <div className="rounded-2xl border border-dashed border-stone-300 p-8 text-center bg-white">
               <p className="text-sm text-stone-500">Aún no tienes solicitudes registradas.</p>
               <Link to="/tours" className="mt-2 inline-block font-bold text-andino-700 underline text-sm">

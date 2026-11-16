@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AlertTriangle, CalendarDays, RefreshCw, Users } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
+import { REQUEST_PUBLIC_COLUMNS } from '../../../services/requests';
 import { formatHoraEs } from '../../../lib/calendar';
 import {
   computeOverviewStats,
@@ -24,9 +25,9 @@ export function OverviewAdmin({ onOpenRequest }: Props) {
     setError(null);
     const { data, error: queryError } = await supabase
       .from('tour_requests')
-      .select('*, profiles(full_name, email), tours(title)')
+      .select(`${REQUEST_PUBLIC_COLUMNS}, profiles(full_name, email), tours(title)`)
       .order('created_at', { ascending: false })
-      .limit(500);
+      .limit(500).returns<AdminRequest[]>();
     setLoading(false);
     if (queryError) {
       setError(`No se pudo cargar el resumen: ${queryError.message}`);

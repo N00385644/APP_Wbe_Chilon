@@ -8,15 +8,15 @@ jobs:
   check:
     runs-on: ubuntu-latest
     env:
-      VITE_SUPABASE_URL: https://example.supabase.co
-      VITE_SUPABASE_PUBLISHABLE_KEY: ci-placeholder
+      VITE_SUPABASE_URL: https://ci-build.supabase.co
+      VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_build_placeholder_123456
     steps:
       - name: Descargar código
         uses: actions/checkout@v4
       - name: Configurar Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
       - name: Instalar dependencias
         run: npm ci

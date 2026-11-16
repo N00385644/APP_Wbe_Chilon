@@ -67,16 +67,19 @@ export function SeatPicker({
 }: SeatPickerProps) {
   const [selected, setSelected] = useState<string[]>(initialSelected);
   const [occupied, setOccupied] = useState<string[]>(initialOccupied ?? []);
-  const [loading, setLoading] = useState(!initialOccupied && !!date);
+  const [loading, setLoading] = useState(!initialOccupied && !!date && !!tourId);
+  const [error, setError] = useState<string | null>(null);
   const [hoveredSeat, setHoveredSeat] = useState<SeatDefinition | null>(null);
 
   // Cargar asientos ocupados reales si hay fecha
   useEffect(() => {
+    setError(null);
     if (initialOccupied) {
       setOccupied(initialOccupied);
+      setLoading(false);
       return;
     }
-    if (!date) {
+    if (!date || !tourId || readOnly) {
       setOccupied([]);
       setLoading(false);
       return;
@@ -85,10 +88,13 @@ export function SeatPicker({
     setLoading(true);
     fetchOccupiedSeats({ tourId, date })
       .then((data) => {
-        if (isMounted) setOccupied(data);
+        if (isMounted) {
+          setOccupied(data);
+          setSelected((seats) => seats.filter((seat) => !data.includes(seat)));
+        }
       })
       .catch(() => {
-        if (isMounted) setOccupied([]);
+        if (isMounted) setError('No pudimos verificar los asientos. Puedes elegir asignación automática y coordinar con un asesor.');
       })
       .finally(() => {
         if (isMounted) setLoading(false);
@@ -96,10 +102,10 @@ export function SeatPicker({
     return () => {
       isMounted = false;
     };
-  }, [tourId, date, initialOccupied]);
+  }, [tourId, date, initialOccupied, readOnly]);
 
   const toggleSeat = (seatId: string) => {
-    if (readOnly) return;
+    if (readOnly || loading || error) return;
     if (occupied.includes(seatId)) return;
 
     if (selected.includes(seatId)) {
@@ -120,7 +126,7 @@ export function SeatPicker({
   };
 
   const handleConfirm = () => {
-    if (onConfirm) onConfirm(selected);
+    if (!loading && !error && selected.length > 0 && selected.length <= maxSeats && !selected.some((seat) => occupied.includes(seat))) onConfirm?.(selected);
   };
 
   return (
@@ -159,7 +165,7 @@ export function SeatPicker({
           <span className="font-bold text-andino-800">
             {selected.length === maxSeats
               ? `✓ ${selected.length} de ${maxSeats} elegidos`
-              : `Elige ${maxSeats - selected.length} asiento(s) más`}
+              : `${selected.length} de ${maxSeats} preferencias elegidas`}
           </span>
         </div>
       )}
@@ -168,7 +174,7 @@ export function SeatPicker({
       <div className="mt-3 flex flex-wrap items-center justify-center gap-3 text-[11px] text-stone-600 border-b border-stone-100 pb-3">
         <span className="flex items-center gap-1.5">
           <span className="h-3.5 w-3.5 rounded-md border-2 border-emerald-500 bg-emerald-50 inline-block" />
-          Disponible
+          {tourId && date ? 'Disponible' : 'Por confirmar'}
         </span>
         <span className="flex items-center gap-1.5">
           <span className="h-3.5 w-3.5 rounded-md bg-andino-700 text-white flex items-center justify-center text-[9px] font-bold">
@@ -182,7 +188,8 @@ export function SeatPicker({
         </span>
       </div>
 
-      {loading ? (
+      {!readOnly && <p className="mt-3 text-xs text-stone-500">La elección es una preferencia; la agencia confirma disponibilidad y asignación por WhatsApp.</p>}
+      {error ? <p role="alert" className="alert-error mt-3 p-3 text-xs">{error}</p> : loading ? (
         <div className="py-12 text-center text-xs text-stone-500">
           <div className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-andino-600 border-t-transparent" />
           <p className="mt-2">Consultando disponibilidad en tiempo real…</p>
@@ -272,7 +279,7 @@ export function SeatPicker({
             </>
           ) : selected.length > 0 ? (
             <>
-              <b>Seleccionado(s):</b> Asiento {selected.sort().join(', ')}
+              <b>Seleccionado(s):</b> Asiento {[...selected].sort().join(', ')}
             </>
           ) : (
             'Toca un asiento disponible para elegirlo.'
@@ -286,11 +293,11 @@ export function SeatPicker({
           <button
             type="button"
             onClick={handleConfirm}
-            disabled={selected.length === 0}
+            disabled={loading || !!error || selected.length === 0 || selected.length > maxSeats || selected.some((seat) => occupied.includes(seat))}
             className="flex-1 rounded-xl bg-andino-700 py-2.5 text-xs font-bold text-white shadow-md hover:bg-andino-800 disabled:opacity-40 transition-colors flex items-center justify-center gap-1.5"
           >
             <Armchair size={15} />
-            Confirmar Asiento{selected.length > 1 ? 's' : ''} ({selected.length})
+            Elegir Asiento{selected.length > 1 ? 's' : ''} ({selected.length})
           </button>
           <button
             type="button"

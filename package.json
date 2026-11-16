@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "description": "Asistente guiado para empresa de tours en Cajamarca, Perú — React + Vite + Supabase (árbol de decisiones, sin IA)",
   "type": "module",
+  "engines": { "node": ">=22.12.0" },
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -12,26 +13,26 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.47.0",
+    "@supabase/supabase-js": "2.117.3",
     "animate.css": "^4.1.1",
     "lucide-react": "^0.454.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.28.0",
+    "react-router-dom": "^7.18.5",
     "three": "^0.186.1"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@types/three": "^0.186.0",
-    "@vitejs/plugin-react": "^4.3.3",
+    "@vitejs/plugin-react": "^5.2.0",
     "autoprefixer": "^10.4.20",
     "pngjs": "^7.0.0",
     "postcss": "^8.4.49",
     "rollup": "npm:@rollup/wasm-node@^4.52.5",
     "tailwindcss": "^3.4.14",
     "typescript": "^5.6.3",
-    "vite": "^5.4.10",
-    "vitest": "^2.1.5"
+    "vite": "^7.3.7",
+    "vitest": "^4.1.12"
   }
 }

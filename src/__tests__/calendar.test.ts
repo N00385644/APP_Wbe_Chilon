@@ -1,9 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import {
-  buildMonthGrid, shiftMonth, toISODate, formatHoraEs, formatFechaCortaEs,
+  buildMonthGrid, shiftMonth, toISODate, todayISO, formatHoraEs, formatFechaCortaEs,
 } from '../lib/calendar';
 
 describe('calendario de tours', () => {
+  it('el día actual usa Lima al cruzar medianoche UTC', () => {
+    expect(todayISO(new Date('2026-11-01T02:00:00Z'))).toBe('2026-10-31');
+  });
   it('el grid del mes empieza en lunes y contiene todos los días', () => {
     // Octubre 2026: 31 días, empieza en jueves.
     const weeks = buildMonthGrid(2026, 9);

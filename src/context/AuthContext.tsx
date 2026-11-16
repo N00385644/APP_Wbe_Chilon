@@ -23,7 +23,7 @@ type AuthState = {
   signUpWithEmail: (email: string, password: string, name: string) => Promise<string | null>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
-  updateName: (name: string) => Promise<void>;
+  updateName: (name: string) => Promise<string | null>;
 };
 
 const Ctx = createContext<AuthState | null>(null);
@@ -84,8 +84,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!uid) { clearProfile(); return; }
       if (profileUserId.current === uid) return;
       profileUserId.current = uid;
+      setProfile(null);
       setProfileLoading(true);
-      setTimeout(() => { void loadProfile(uid); }, 0);
+      setTimeout(() => { if (profileUserId.current === uid) void loadProfile(uid); }, 0);
     });
     return () => sub.subscription.unsubscribe();
   }, []);
@@ -126,6 +127,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUpWithEmail = async (email: string, password: string, name: string): Promise<string | null> => {
     setError(null);
+    const checked = validateName(name);
+    if (checked.error || !checked.value) {
+      const msg = checked.error ?? 'Nombre inválido.';
+      setError(msg);
+      return msg;
+    }
     if (password.length < 6) {
       const msg = 'La contraseña debe tener al menos 6 caracteres.';
       setError(msg);
@@ -133,23 +140,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     const { error } = await supabase.auth.signUp({
       email: email.trim(), password,
-      options: { data: { full_name: name.trim() } },
+      options: { data: { full_name: checked.value }, emailRedirectTo: `${window.location.origin}/perfil` },
     });
     if (error) { setError(error.message); return error.message; }
     return null;
   };
 
   const updateName = async (name: string) => {
-    if (!session?.user) return;
+    setError(null);
+    if (!session?.user) return 'Inicia sesión para guardar tu nombre.';
     const checked = validateName(name);
     if (checked.error || !checked.value) {
-      setError(checked.error ?? 'Nombre inválido.');
-      return;
+      const message = checked.error ?? 'Nombre inválido.';
+      setError(message);
+      return message;
     }
     const { error } = await supabase.from('profiles')
-      .update({ full_name: checked.value }).eq('id', session.user.id);
-    if (error) setError(error.message);
-    else await refreshProfile();
+      .update({ full_name: checked.value }).eq('id', session.user.id).select('id').single();
+    if (error) { setError(error.message); return error.message; }
+    await refreshProfile();
+    return null;
   };
 
   return (

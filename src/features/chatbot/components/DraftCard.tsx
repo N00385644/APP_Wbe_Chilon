@@ -11,7 +11,6 @@ export function DraftCard({ draft, onEditSeats }: {
     <div className="mt-2 rounded-xl border border-stone-200 bg-white p-3 text-stone-700 shadow-sm">
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-bold uppercase tracking-wider text-stone-500">Resumen de solicitud · paso {Math.min(stepsDone + 1, 4)} de 4</p>
-        <p className="text-xs font-bold uppercase text-stone-500">Resumen de solicitud</p>
         {onEditSeats && (
           <button
             type="button"
@@ -24,7 +23,7 @@ export function DraftCard({ draft, onEditSeats }: {
       </div>
       <ul className="mt-1 text-[13px] space-y-0.5">
         <li><b>Destino:</b> {draft.requested_destination ?? '—'}</li>
-        <li><b>Fecha preferida:</b> {draft.preferred_date ?? '—'}</li>
+        <li><b>Fecha preferida:</b> {draft.date_is_flexible ? 'Fecha flexible' : draft.preferred_date ?? '—'}</li>
         <li><b>Viajeros:</b> {Number(draft.adults ?? 1) + Number(draft.children ?? 0)} (adultos: {draft.adults ?? 1}, menores: {draft.children ?? 0})</li>
         {draft.requested_seats && <li><b>Asiento(s) elegido(s):</b> <span className="font-semibold text-andino-800">💺 {draft.requested_seats}</span></li>}
         {draft.contact_phone && <li><b>Teléfono:</b> {draft.contact_phone}</li>}

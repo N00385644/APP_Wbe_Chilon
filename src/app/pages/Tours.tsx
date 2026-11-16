@@ -7,10 +7,16 @@ import { BackButton } from '../../components/shared/BackButton';
 import { SearchBar } from '../../components/shared/SearchBar';
 import { useTourImages, useTours } from '../../lib/hooks';
 import { formatPEN } from '../../lib/format';
+import { siteTitle, useDocumentMeta } from '../../lib/seo';
 
 export function Tours() {
-  const { tours, loading } = useTours();
+  const { tours, loading, error } = useTours();
   const [q, setQ] = useState('');
+  useDocumentMeta(
+    siteTitle('Tours y circuitos en Cajamarca'),
+    'Catálogo de tours en Cajamarca, Perú: Cumbemayo, Ventanillas de Otuzco, Granja Porcón, Baños del Inca y más. Consulta precios y reserva por WhatsApp.',
+    '/tours',
+  );
 
   const list = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -44,13 +50,13 @@ export function Tours() {
         />
       </div>
 
-      {!loading && (
+      {!loading && !error && (
         <p id="resultados-tours" role="status" aria-live="polite" className="mb-4 scroll-mt-24 text-xs font-semibold text-stone-500 tabular-nums">
           Mostrando {list.length} de {tours.length} circuito{tours.length === 1 ? '' : 's'}
         </p>
       )}
 
-      {loading ? (
+      {error ? <p role="alert" className="alert-error p-4">No pudimos cargar los tours. Recarga la página o consúltanos por WhatsApp.</p> : loading ? (
         <div role="status" aria-live="polite" className={BENTO_GRID_CLS}>
           {[0, 1, 2, 3, 4, 5].map((n) => (
             <div key={n} className={`skeleton bg-white/60 ${bentoTilePattern(n).span}`} />
@@ -61,7 +67,7 @@ export function Tours() {
         <ToursBento tours={list} />
       )}
 
-      {!loading && list.length === 0 && (
+      {!loading && !error && list.length === 0 && (
         <div role="status" className="empty-state bg-white">
           <p className="text-sm font-bold text-stone-800">No encontramos ningún tour que coincida con tu búsqueda.</p>
           <p className="mt-1 text-xs text-stone-500">Prueba con “Cumbemayo”, “Otuzco” o “Porcón”.</p>
@@ -79,11 +85,16 @@ export function Tours() {
 
 export function TourDetail() {
   const { slug } = useParams();
-  const { tours, loading } = useTours();
+  const { tours, loading, error } = useTours();
   const t = tours.find((x) => x.slug === slug);
   const { images } = useTourImages(t?.id);
   const [lb, setLb] = useState<number | null>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+  useDocumentMeta(
+    t ? siteTitle(`Tour ${t.title}`) : siteTitle('Tour'),
+    t?.short_description ?? 'Tour en Cajamarca con Turismo Chilón.',
+    `/tours/${slug ?? ''}`,
+  );
 
   // Galería ampliable: portada + fotos adicionales, sin duplicar la portada.
   const slides = useMemo(() => {
@@ -120,6 +131,7 @@ export function TourDetail() {
   }, [open, slides.length]);
 
   if (loading) return <main className="mx-auto max-w-4xl px-4 py-16 text-center text-sm text-stone-500">Cargando detalles del tour…</main>;
+  if (error) return <main className="mx-auto max-w-4xl px-4 py-16"><BackButton to="/tours" label="Volver al catálogo" /><p role="alert" className="alert-error mt-4 p-4">No pudimos cargar el tour. Recarga la página e inténtalo de nuevo.</p></main>;
   if (!t) return (
     <main className="mx-auto max-w-4xl px-4 py-16 text-center">
       <BackButton to="/tours" label="Volver al catálogo" className="mb-6" />

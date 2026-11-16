@@ -39,7 +39,9 @@ queda ambiguo.
 10. `0009_trip_reminders.sql`
 11. `0010_harden_request_columns.sql`
 
-Futuras migraciones usan `0011_*`, … Nunca reutilizar `0003`.
+12. `0011_deployment_security.sql` — cierra historiales sin dueño, cuenta únicamente asientos confirmados y protege `admin_notes` con permisos por columna y la RPC `get_admin_request_notes` para administradores.
+
+Futuras migraciones usan `0012_*`, … Nunca reutilizar `0003`.
 
 ## Comprobaciones de solo lectura (antes de desplegar)
 
@@ -110,7 +112,7 @@ Principios: comprobar primero en staging; nunca borrar filas de
 
 ## Reglas futuras
 
-- Un número de versión, un fichero. El próximo es `0011_*`.
+- Un número de versión, un fichero. El próximo es `0012_*`.
 - Migraciones idempotentes cuando sea seed (`on conflict do nothing` con
   target explícito) y `if not exists` en DDL.
 - Prohibido reescribir una migración ya aplicada en prod; cualquier corrección

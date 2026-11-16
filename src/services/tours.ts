@@ -15,14 +15,14 @@ export async function fetchPublishedTours(): Promise<Tour[]> {
 
 export type TourCard = Pick<
   Tour,
-  'slug' | 'title' | 'destination' | 'duration' | 'price_from' | 'currency' | 'short_description' | 'meeting_point' | 'includes'
+  'id' | 'slug' | 'title' | 'destination' | 'duration' | 'price_from' | 'currency' | 'short_description' | 'meeting_point' | 'includes'
 >;
 
 /** Vista reducida para el menú guiado (12 primeros por título). */
 export async function fetchTourCards(): Promise<TourCard[]> {
   const { data, error } = await supabase
     .from('tours')
-    .select('slug,title,destination,duration,price_from,currency,short_description,meeting_point,includes')
+    .select('id,slug,title,destination,duration,price_from,currency,short_description,meeting_point,includes')
     .eq('is_published', true)
     .order('title')
     .limit(12);

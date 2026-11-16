@@ -24,7 +24,7 @@ export type TourRequest = {
   date_is_flexible: boolean; adults: number; children: number;
   travelers_count: number; contact_phone: string | null;
   additional_notes: string | null; status: string;
-  admin_notes: string | null; created_at: string;
+  admin_notes?: string | null; created_at: string;
   // Logística confirmada por la agencia (solo admin la edita)
   confirmed_date: string | null; departure_time: string | null;
   meeting_point: string | null; departure_notes: string | null;

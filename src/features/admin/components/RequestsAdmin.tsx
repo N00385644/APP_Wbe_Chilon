@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { MessageCircle, Search } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
+import { fetchAdminNotes, REQUEST_PUBLIC_COLUMNS } from '../../../services/requests';
 import { REQUEST_STATUS_LABEL } from '../../../lib/types';
 import { formatFechaHoraLima } from '../../../lib/format';
 import {
@@ -79,7 +80,7 @@ export function RequestsAdmin({ focusRequestId = null, onFocusConsumed }: Props)
     setLoading(true);
     let query = supabase
       .from('tour_requests')
-      .select('*, profiles(full_name, email), tours(title)')
+      .select(`${REQUEST_PUBLIC_COLUMNS}, profiles(full_name, email), tours(title)`)
       .range(page * PAGE, page * PAGE + PAGE - 1);
 
     if (focusId) {
@@ -92,13 +93,20 @@ export function RequestsAdmin({ focusRequestId = null, onFocusConsumed }: Props)
         : query.order('created_at', { ascending: false });
     }
 
-    const { data, error } = await query;
-    setLoading(false);
+    const { data, error } = await query.returns<AdminRequest[]>();
     if (error) {
+      setLoading(false);
       setNotice({ kind: 'error', text: `No se pudieron cargar las solicitudes: ${error.message}` });
       return;
     }
-    setRows((data ?? []) as AdminRequest[]);
+    try {
+      const requests = (data ?? []) as AdminRequest[];
+      const notes = await fetchAdminNotes(requests.map((r) => r.id));
+      setRows(requests.map((r) => ({ ...r, admin_notes: notes[r.id] ?? null })));
+    } catch {
+      setRows([]);
+      setNotice({ kind: 'error', text: 'No se pudieron cargar las notas internas. Reintenta la búsqueda o verifica las migraciones de la base de datos.' });
+    } finally { setLoading(false); }
   };
 
   const loadCounts = async () => {

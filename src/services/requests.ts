@@ -4,6 +4,17 @@
 import { supabase } from '../lib/supabase';
 import type { TourRequest } from '../lib/types';
 
+// Las notas internas se leen únicamente mediante una RPC que comprueba el rol admin.
+export const REQUEST_PUBLIC_COLUMNS = 'id,user_id,tour_id,requested_destination,preferred_date,date_is_flexible,adults,children,travelers_count,contact_phone,additional_notes,status,created_at,updated_at,confirmed_date,departure_time,meeting_point,departure_notes,requested_seats,confirmed_seats,reminder_sent_at';
+
+export async function fetchAdminNotes(ids: string[]): Promise<Record<string, string | null>> {
+  if (!ids.length) return {};
+  const { data, error } = await supabase.rpc('get_admin_request_notes', { p_ids: ids });
+  if (error) throw new Error('No se pudieron cargar los comentarios internos.');
+  return Object.fromEntries(((data ?? []) as { id: string; admin_notes: string | null }[])
+    .map((row) => [row.id, row.admin_notes]));
+}
+
 export type CreateRequestInput = {
   user_id: string;
   tour_id: string | null;
@@ -22,54 +33,25 @@ export type CreateRequestInput = {
 
 /**
  * Consulta los asientos ya ocupados para un tour y fecha determinados.
- * Utiliza la función RPC segura get_occupied_seats o fallback directo.
+ * La RPC devuelve solo números de asiento, sin datos personales.
  */
 export async function fetchOccupiedSeats(params: { tourId?: string | null; date?: string | null }): Promise<string[]> {
-  if (!params.date) return [];
-  try {
-    const { data: rpcData, error: rpcError } = await supabase.rpc('get_occupied_seats', {
-      p_tour_id: params.tourId || null,
-      p_date: params.date,
-    });
-    if (!rpcError && Array.isArray(rpcData)) {
-      return (rpcData as { seat: string }[]).map((r) => r.seat).filter(Boolean);
-    }
-  } catch {
-    // Si la RPC no está presente aún en el entorno, fallback a consulta directa
+  if (!params.date || !params.tourId) return [];
+  const { data, error } = await supabase.rpc('get_occupied_seats', {
+    p_tour_id: params.tourId,
+    p_date: params.date,
+  });
+  // RLS solo deja leer solicitudes propias: una consulta directa no mide disponibilidad.
+  if (error || !Array.isArray(data)) {
+    throw new Error('No se pudo consultar la disponibilidad. Reintenta o coordina los asientos por WhatsApp.');
   }
-
-  try {
-    let query = supabase
-      .from('tour_requests')
-      .select('requested_seats, confirmed_seats')
-      .neq('status', 'cancelled');
-
-    if (params.tourId) query = query.eq('tour_id', params.tourId);
-    query = query.or(`confirmed_date.eq.${params.date},and(confirmed_date.is.null,preferred_date.eq.${params.date})`);
-
-    const { data, error } = await query;
-    if (error || !data) return [];
-
-    const set = new Set<string>();
-    for (const r of data) {
-      const s = r.confirmed_seats || r.requested_seats;
-      if (s) {
-        s.split(',').forEach((x: string) => {
-          const trimmed = x.trim();
-          if (trimmed) set.add(trimmed);
-        });
-      }
-    }
-    return Array.from(set);
-  } catch {
-    return [];
-  }
+  return (data as { seat: string }[]).map((r) => r.seat).filter(Boolean);
 }
 
 export async function fetchMyRequests(userId: string): Promise<TourRequest[]> {
   const { data, error } = await supabase
     .from('tour_requests')
-    .select('*')
+    .select(REQUEST_PUBLIC_COLUMNS)
     .eq('user_id', userId)
     .order('created_at', { ascending: false });
   if (error) throw new Error(error.message);
@@ -77,8 +59,10 @@ export async function fetchMyRequests(userId: string): Promise<TourRequest[]> {
 }
 
 export async function cancelMyRequest(id: string): Promise<void> {
-  const { error } = await supabase.from('tour_requests').update({ status: 'cancelled' }).eq('id', id);
+  const { data, error } = await supabase.from('tour_requests')
+    .update({ status: 'cancelled' }).eq('id', id).select('id').maybeSingle();
   if (error) throw new Error(error.message);
+  if (!data) throw new Error('La solicitud cambió de estado o ya no puedes cancelarla. Actualiza la lista.');
 }
 
 /**

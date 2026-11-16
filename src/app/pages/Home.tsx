@@ -11,8 +11,8 @@ import { useFaqs, useTours } from '../../lib/hooks';
 import { SOCIALS } from '../../lib/site';
 
 export function Home() {
-  const { tours } = useTours();
-  const { faqs } = useFaqs();
+  const { tours, loading: toursLoading, error: toursError } = useTours();
+  const { faqs, loading: faqsLoading, error: faqsError } = useFaqs();
 
   return (
     <>
@@ -44,14 +44,16 @@ export function Home() {
             </Link>
           </div>
 
-          {tours.length > 0 ? (
+          {toursError ? <p role="alert" className="alert-error mt-6 p-4">No pudimos cargar los tours. Recarga la página o consúltanos por WhatsApp.</p>
+            : toursLoading ? <p role="status" className="mt-6 text-sm text-stone-500">Cargando tours…</p>
+            : tours.length > 0 ? (
             <ToursBento tours={tours.slice(0, 6)} className="mt-6" />
           ) : (
             <div role="status" className="empty-state mt-6 bg-white/60">
               <p className="text-3xl" aria-hidden>🏔️</p>
               <p className="mt-2 text-sm font-semibold text-stone-700">Aún no hay tours publicados</p>
               <p className="mt-1 text-sm text-stone-500">
-                El administrador puede activarlos desde el panel. Mientras tanto, consúltanos por WhatsApp.
+                Consúltanos por WhatsApp para conocer los próximos circuitos.
               </p>
             </div>
           )}
@@ -98,7 +100,7 @@ export function Home() {
                   </span>
                   <div>
                     <strong className="block text-sm text-white">Envía tu solicitud de reserva</strong>
-                    <span className="text-xs text-white/75">Queda registrada en tu perfil con número de seguimiento.</span>
+                    <span className="text-xs text-white/75">Envía el resumen por WhatsApp para que lo revise un asesor.</span>
                   </div>
                 </li>
                 <li className="flex items-start gap-3">
@@ -132,7 +134,9 @@ export function Home() {
                 Ver todas
               </Link>
             </div>
-            <FaqList faqs={faqs.slice(0, 5)} filter="" />
+            {faqsError ? <p role="alert" className="alert-error p-4">No pudimos cargar las preguntas. Consúltanos por WhatsApp.</p>
+              : faqsLoading ? <p role="status" className="text-sm text-stone-500">Cargando preguntas…</p>
+                : <FaqList faqs={faqs.slice(0, 5)} filter="" />}
           </div>
         </section>
 

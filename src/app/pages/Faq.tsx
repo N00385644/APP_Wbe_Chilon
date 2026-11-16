@@ -6,7 +6,7 @@ import { SearchBar } from '../../components/shared/SearchBar';
 import { useFaqs } from '../../lib/hooks';
 
 export function FaqPage() {
-  const { faqs } = useFaqs();
+  const { faqs, loading, error } = useFaqs();
   const [q, setQ] = useState('');
 
   return (
@@ -34,7 +34,9 @@ export function FaqPage() {
       </div>
 
       <div id="lista-faq" className="scroll-mt-24">
-        <FaqList faqs={faqs} filter={q} />
+        {error ? <p role="alert" className="alert-error p-4">No pudimos cargar las preguntas. Recarga la página o consúltanos por WhatsApp.</p>
+          : loading ? <p role="status" className="text-sm text-stone-500">Cargando preguntas…</p>
+            : <FaqList faqs={faqs} filter={q} />}
       </div>
     </main>
   );

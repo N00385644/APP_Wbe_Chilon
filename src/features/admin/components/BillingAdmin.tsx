@@ -1,9 +1,29 @@
-import { useEffect, useState } from 'react';
 import { ExternalLink, Receipt } from 'lucide-react';
 
+export function billingAppUrl(value: string | undefined, development = false): string | null {
+  if (!value?.trim()) return null;
+  try {
+    const url = new URL(value.trim());
+    const local = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+    if (url.username || url.password || url.search || url.hash) return null;
+    if (local ? !development || !['http:', 'https:'].includes(url.protocol) : url.protocol !== 'https:') return null;
+    return url.href.replace(/\/$/, '');
+  } catch {
+    return null;
+  }
+}
+
 export function BillingAdmin() {
-  const billingUrl = (import.meta.env.VITE_FACTURADOR_APP_URL as string | undefined)?.trim()
-    || 'http://localhost:3000';
+  const billingUrl = billingAppUrl(import.meta.env.VITE_FACTURADOR_APP_URL, import.meta.env.DEV);
+
+  if (!billingUrl) return (
+    <section className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
+      <h2 className="font-bold text-stone-900">Facturación electrónica</h2>
+      <p role="status" className="mt-2 text-sm text-stone-600">
+        El facturador todavía no está conectado. Configura la dirección HTTPS de tu sistema de facturación para habilitar este panel.
+      </p>
+    </section>
+  );
 
   return (
     <section className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm">

@@ -7,7 +7,7 @@ import { ScheduleCalendar } from '../../features/calendar/components/ScheduleCal
 
 export function CalendarPage() {
   const { user, loading: authLoading } = useAuth();
-  const { schedule, loading } = useMySchedule(user?.id);
+  const { schedule, loading, error, reload } = useMySchedule(user?.id);
 
   if (authLoading) return <main className="p-12 text-center text-sm text-stone-500">Cargando…</main>;
   if (!user) return <Navigate to="/perfil" replace />;
@@ -24,7 +24,12 @@ export function CalendarPage() {
           Aquí tienes la fecha confirmada, la hora de salida y el punto de encuentro. Añádelo a tu calendario para no olvidarlo.
         </p>
       </div>
-      <ScheduleCalendar schedule={schedule} loading={loading} />
+      {error ? (
+        <div role="alert" className="alert-error p-4">
+          <p>No pudimos cargar tus viajes. Inténtalo de nuevo.</p>
+          <button onClick={() => void reload()} className="mt-2 min-h-11 font-bold underline">Reintentar</button>
+        </div>
+      ) : <ScheduleCalendar schedule={schedule} loading={loading} />}
     </main>
   );
 }

@@ -88,9 +88,7 @@ export function H350Viewer() {
     }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.shadowMap.enabled = true;
-    // Sombras suaves: el contacto de las ruedas con el asfalto pesa menos que
-    // un borde duro (PCFSoft vs PCF, coste bajo en esta escena pequeña).
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.15;
     renderer.outputColorSpace = THREE.SRGBColorSpace;

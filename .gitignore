@@ -13,3 +13,5 @@ mcp/brushstroke/
 .vscode/
 testsprite_tests/tmp/
 
+
+.playwright-mcp/

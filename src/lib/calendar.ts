@@ -17,9 +17,11 @@ export function toISODate(d: Date): string {
   return `${d.getFullYear()}-${m}-${day}`;
 }
 
-/** Fecha de hoy en ISO (para resaltar el día actual). */
-export function todayISO(): string {
-  return toISODate(new Date());
+/** Fecha de hoy en Lima, independientemente de dónde esté el visitante. */
+export function todayISO(now = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Lima', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(now);
 }
 
 /**
@@ -98,7 +100,7 @@ function parseISODate(iso: string | null | undefined): { y: number; m: number; d
  * 0 = hoy, 1 = mañana, negativo = ya pasó. `null` si alguna fecha no es válida.
  * Se comparan fechas locales (no instantes), así que no afecta la hora del día.
  */
-export function daysUntil(isoDate: string, today: Date | string = new Date()): number | null {
+export function daysUntil(isoDate: string, today: Date | string = todayISO()): number | null {
   const target = parseISODate(isoDate);
   if (!target) return null;
 
@@ -114,7 +116,7 @@ export function daysUntil(isoDate: string, today: Date | string = new Date()): n
 }
 
 /** Etiqueta de cuenta atrás: 'Hoy', 'Mañana', 'Faltan 3 días'… */
-export function countdownLabel(isoDate: string | null | undefined, today: Date | string = new Date()): string | null {
+export function countdownLabel(isoDate: string | null | undefined, today: Date | string = todayISO()): string | null {
   if (!isoDate) return null;
   const days = daysUntil(isoDate, today);
   if (days === null) return null;
